@@ -12,6 +12,8 @@ Built agentically with Grok + Claude.
 
 > **High-level snapshot + roadmap**: See [PROJECT_STATUS.md](PROJECT_STATUS.md) for a concise summary of everything built (A1 brain, explo, ICM, runner, vision), quick commands, current limitations (vision is basic/functional but needs calibration for reliable real ClubGG OCR; ICM is short-stack only), and recommended next steps focused on making the vision layer deliver true 0-touch hands-off assistance.
 
+**Source**: https://github.com/zedazenigodx-tech/PokerFlex (git clone that for latest; local git initialized + pushed as part of go-dark resumption).
+
 ## Performance & Reliability (tuning + verification)
 
 The background A1 assistant is hardened for long sessions and snappier in common paths (no change to A1 defaults or correctness).

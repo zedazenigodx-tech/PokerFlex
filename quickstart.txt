@@ -1,5 +1,7 @@
 POKERFLEX A1 REAL-TIME ASSISTANT — QUICKSTART (ClubGG + CoinPoker)
 ULTIMATE "GET A WORKING BACKGROUND ASSISTANT IN <10 MINUTES" GUIDE
+
+Repo: https://github.com/zedazenigodx-tech/PokerFlex  (clone or download; this workspace was git inited + pushed resuming prior gitbash session)
 A1 brain = UNAMBIGUOUS DEFAULT (no flags). Zero-touch: install once, double-click launcher (or cmd), calibrate once per client/table for real vision (ClubGG or CoinPoker via --client or auto title detect), play with hotkeys/tray + live notes + ICM. All new cmds (calibrate, --tray, --self-test, --bench, icm-sim, action, notes edit, set payouts) documented in --help / status / interactive help / docs. Multi-client: --client coinpoker|clubgg (auto from window); uses client-prefixed or generic poker_* state/notes (legacy clubgg_ fallback).
 
 EXACT STEPS (copy-paste, from E:\PokerFLex folder; Windows/PowerShell or cmd):

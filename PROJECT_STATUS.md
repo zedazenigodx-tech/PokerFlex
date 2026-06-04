@@ -289,3 +289,5 @@ This is a complete, high-quality milestone (go dark complete). Maturing the visi
 
 ---
 *Generated as the concise final summary + forward plan. All prior docs remain the authoritative user guides.*
+
+**GitHub**: https://github.com/zedazenigodx-tech/PokerFlex (local repo initialized and pushed in resumption of gitbash work session; includes full history of A1 delivery).
