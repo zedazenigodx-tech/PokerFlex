@@ -197,7 +197,7 @@ Full details + more recipes: `quickstart.txt` (ultra-short) and `readme.md` (com
 
 - **Explo reach**: Excellent for postflop (c-bet width/freq, value vs bluff balance vs nit/station). Preflop open/push ranges currently less dynamically altered by notes (focus was postflop + short Nash).
 
-- **Presentation**: Advice lives in the console (bg runner) or GUI text box. System tray (pystray optional) + popups + log now delivered (see "Deploy..." in readme); still no always-on-top overlay or in-client injection (future).
+- **Presentation**: Advice lives in console (bg runner) or GUI text box + system tray (pystray optional) + popups/toasts + log + lightweight always-on-top floating overlay (toggle via hotkey Ctrl+Alt+O or tray; compact rich A1 while hidden/minimized; delivered in final swarm). In-client injection (overlay inside poker client) remains future/hard (anti-cheat scope). Richer overlay polish (more metrics, theming) is a nice-to-have (see HANDOFF.md).
 
 - **Automation level**: `--live` + vision gets you close, but until vision is highly reliable you will occasionally correct state via hotkey/json/set (still very low effort). **Bet-size / facing action auto-extraction from vision now improved** (light OCR + inference into action_history for postflop); full auto still benefits from occasional 'action bet X' override or json.
 
@@ -210,7 +210,7 @@ Full details + more recipes: `quickstart.txt` (ultra-short) and `readme.md` (com
   - No full hand history import, persistent cross-session profiles, advanced leak DB, or cloud sync.
   - Background runner is a console process (minimize + tray works fine).
 
-The strategic brain, runner infrastructure, explo/ICM plumbing, capture hooks, multi-client (ClubGG+CoinPoker), and user experience (launchers + docs + tray + overlay) are complete and robust. Remaining for deeper hands-off: richer vision (villain holdings, reliable auto bet-size facing) + full deep ICM. See "Current Limitations" and nice-to-haves in roadmap.
+The strategic brain, runner infrastructure, explo/ICM plumbing, capture hooks, multi-client (ClubGG+CoinPoker), and user experience (launchers + docs + tray + overlay + voice + leaks + history) are complete and robust. Remaining for deeper hands-off: richer vision (villain holdings, reliable auto bet-size facing) + full deep ICM + advanced profiles/leaks + installer + more clients. See "Current Limitations", HANDOFF.md and nice-to-haves in roadmap.
 
 ## Recommended Next Steps (Roadmap)
 
@@ -276,7 +276,7 @@ Prioritized for delivering a true 0-touch real-time ClubGG assistant.
 
 The hard parts (brain quality, explo system, ICM plumbing, runner architecture with hotkeys/watcher/live loop, packaging, docs, multi-client CoinPoker) are done and solid. Vision (after one calib) is now the "eyes" layer that turns the excellent advisor into the effortless live assistant (much stronger post-harden + listener).
 
-**Status Summary for the 0-Touch User**: Full multi-client (ClubGG + CoinPoker) A1 background real-time assistant is production-ready (final go-dark complete via agent swarm + verifs). Brain + runner + tray + overlay + calib + live + notes + ICM + history + **voice wiring + improved auto bet/facing vision + basic leak review tool** = ready (double-click launch_assistant.bat or launch_assistant.ps1 for PowerShell users, or `python -m pokerflex --tray --live`). Calib once per client/table for best real-vision set-and-forget. Deeper future (richer villain holdings, full deep ICM solver, more clients, advanced leak DB) listed in roadmap. All core + the last major nice-to-haves delivered in this swarm phase. (Local PowerShell dev flow supported — no git required; git repo at https://github.com/zedazenigodx-tech/PokerFlex.)
+**Status Summary for the 0-Touch User**: Full multi-client (ClubGG + CoinPoker) A1 background real-time assistant is production-ready (final go-dark complete via agent swarm + verifs + resume handoff). Brain + runner + tray + overlay + calib + live + notes + ICM + history + **voice + improved auto bet/facing + basic leak/review** = ready (double-click launch_assistant.bat or .ps1, or `python -m pokerflex --tray --live`). Calib once per client/table for best real-vision. See new HANDOFF.md for prioritized deeper future (P1 richer villain/bet vision, P2 full ICM, P3 adv leak/profiles, etc.). All core delivered and verified. Local PowerShell flow supported; git repo https://github.com/zedazenigodx-tech/PokerFlex.
 
 ## References & Next Actions for You
 - Start here: double-click `launch_assistant.bat` (or `launch_assistant.ps1` if you continue in PowerShell on Windows) (after install) or read the top of `readme.md`.

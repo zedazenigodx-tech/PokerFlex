@@ -4,6 +4,13 @@ All notable changes for the A1 real-time GTO + explo + ICM assistant.
 
 ## Unreleased / Agentic Development Release (2026)
 
+**Resume / Post Go-Dark Handoff Polish**:
+- Created `HANDOFF.md`: concise prioritized remaining roadmap (P1 richer vision/villain holdings + auto bet/action; P2 full deep ICM; P3 advanced leak/review + persistent profiles; P4 more clients; P5 installer polish; P6 overlay/TTS) with key files, verification steps, and strict agent guidelines (A1 default enforcement, self-test discipline, docs updates, multi-client awareness).
+- Minor doc fixes in PROJECT_STATUS.md (overlay status, final summary, cross-refs to HANDOFF.md).
+- go_dark_complete.txt updated with resume entry + handoff delivery.
+- Re-ran `python -m pokerflex --self-test` on resume (exit 0; full coverage of live/noisy/history/ICM/calib/voice/leaks paths).
+- Git kept clean; launchers/docs reflect current shipped state.
+
 **Final Go-Dark Swarm Delivery (voice wiring + bet vision + leak tool + polish + verifs)**:
 - **Voice integration (top UX nice-to-have)**: `capture_voice` (push-to-talk SPACE + faster-whisper) from `pokerflex/voice.py` now wired into `run_brain.py` interactive loop. Command `voice` / `speak` / `v` records, transcribes, and routes the text through the existing command parser (supports natural "set stack 55", "note btn nit", "analyze", "tmode true", "icm 0.18", "leaks", "action villain bet 4.5" etc). Works in PowerShell, cmd, gitbash (terminal focus keywords cover them). Tray menu "Voice Command" added for bg mode. Docs + help updated. Standalone `voice_input.py` unchanged for chat use.
 - **Vision bet sizing + facing action (live postflop accuracy)**: Enhanced `capture.py` (ROI hints, OCR extraction for bet/pot/action text, improved regex for sizes like 4.5 / $12 / bb3, facing detection). Light auto-inference into `bet_to_call`, `facing_action`, `action_hint`, and appends to `action_history` on street changes when vision confident. Graceful fallback to manual/json. Makes --live --real-vision postflop decisions stronger (history story + blocker + range cap benefit). Multi-client + simulate + calib paths untouched.
