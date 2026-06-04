@@ -66,7 +66,7 @@ try {
 
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host " PokerFlex A1 — PowerShell Launcher (zero-touch)" -ForegroundColor Cyan
+Write-Host " PokerFlex A1 - PowerShell Launcher (zero-touch)" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Continuing in PowerShell on Windows (local, no git)." -ForegroundColor DarkGray
@@ -100,7 +100,7 @@ try {
 } catch [System.Management.Automation.CommandNotFoundException] {
     Write-Host ""
     Write-Warning "python not found on PATH. Install Python 3, add it to PATH, then retry."
-    Write-Host "Or use the full path, e.g.:  & 'C:\Python313\python.exe' launch_assistant.py @pythonArgs"
+    Write-Host "Or use the full path to python.exe explicitly, e.g. & 'C:\\Python313\\python.exe' launch_assistant.py ..."
 } catch {
     Write-Host ""
     Write-Warning "Launcher exited with error: $_"

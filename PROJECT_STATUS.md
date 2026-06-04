@@ -80,7 +80,7 @@ This document gives a high-level, user-friendly view (especially for the "0-touc
 - Easy install: `install.bat` (Windows) or `pip install -r requirements.txt && pip install -e .` (makes `pokerflex` CLI + `python -m pokerflex` work).
 - Standalone / real deployment: `build_exe.py` (PyInstaller one-file/folder exe with full A1 + tray support). See dedicated section in readme.
 - Recommended launcher: `python -m pokerflex` (or root `python pokerflex.py` shim). Forces A1, UTF-8 banners, full docs in `--help`.
-- One-click zero-touch + tray: `launch_assistant.bat` (or `python launch_assistant.py [--tray]`) — runs the tested `--background --live --simulate-vision` (or --tray) flow with banner. Tray menu + persist + quieter + popups when pystray present (optional, graceful).
+- One-click zero-touch + tray: `launch_assistant.bat` (or `python launch_assistant.py [--tray]`) or `launch_assistant.ps1` for PowerShell users (local PS workflow, no git) — runs the tested `--background --live --simulate-vision` (or --tray) flow with banner. Tray menu + persist + quieter + popups when pystray present (optional, graceful). The .ps1 sets UTF8/chcp and gives PS-specific tips (ExecutionPolicy, Run as admin for hotkeys) then delegates.
 - Other: `python main.py` (GUI), `python nash.py` (standalone ICM/push-fold tables), `python capture.py`.
 - Config: `config.py` (equity iters, c-bet sizes per texture, exploit thresholds, icm_*, runner hotkeys/state filenames, etc.). All tunable.
 - Docs: Comprehensive `readme.md` ("Getting Started with the A1 Real-Time Assistant" + "Deploy as background app" + examples + troubleshooting), `quickstart.txt` (ultra-short copy-paste), this `PROJECT_STATUS.md`, `CHANGELOG.md` (detailed build history).
@@ -275,10 +275,10 @@ Prioritized for delivering a true 0-touch real-time ClubGG assistant.
 
 The hard parts (brain quality, explo system, ICM plumbing, runner architecture with hotkeys/watcher/live loop, packaging, docs, multi-client CoinPoker) are done and solid. Vision (after one calib) is now the "eyes" layer that turns the excellent advisor into the effortless live assistant (much stronger post-harden + listener).
 
-**Status Summary for the 0-Touch User**: Full multi-client (ClubGG + CoinPoker) A1 background real-time assistant is production-ready now (go-dark complete via swarm + verifs). Brain + runner + tray + overlay + calib + live + notes + ICM + history = ready (double-click launch_assistant.bat or `python -m pokerflex --tray --live`). Calib once per client/table for best real-vision set-and-forget. See roadmap nice-to-haves below for deeper future (villain holdings, auto bet sizing, full ICM, more clients, voice wiring). All prior items delivered.
+**Status Summary for the 0-Touch User**: Full multi-client (ClubGG + CoinPoker) A1 background real-time assistant is production-ready now (go-dark complete via swarm + verifs). Brain + runner + tray + overlay + calib + live + notes + ICM + history = ready (double-click launch_assistant.bat or launch_assistant.ps1 for PowerShell users, or `python -m pokerflex --tray --live`). Calib once per client/table for best real-vision set-and-forget. See roadmap nice-to-haves below for deeper future (villain holdings, auto bet sizing, full ICM, more clients, voice wiring). All prior items delivered. (Local PowerShell dev flow supported — no git required.)
 
 ## References & Next Actions for You
-- Start here: double-click `launch_assistant.bat` (after install) or read the top of `readme.md`.
+- Start here: double-click `launch_assistant.bat` (or `launch_assistant.ps1` if you continue in PowerShell on Windows) (after install) or read the top of `readme.md`.
 - Ultra-fast commands: `quickstart.txt`.
 - Detailed guide + troubleshooting: `readme.md`.
 - Build history: `CHANGELOG.md`.

@@ -31,6 +31,13 @@ REM This eliminates duplication and ensures .bat double-click gets all future la
 REM Tray now default for always-visible advice surface.
 python launch_assistant.py %*
 
+REM PowerShell users (preferred for many on Windows): use launch_assistant.ps1 instead of (or alongside) this .bat.
+REM   Right-click .ps1 → Run with PowerShell (or Run as administrator for global hotkeys).
+REM   Or from PS:  .\launch_assistant.ps1   (or with args: .\launch_assistant.ps1 --client coinpoker --real-vision)
+REM   If policy blocks:  powershell -ExecutionPolicy Bypass -File .\launch_assistant.ps1
+REM The .ps1 sets UTF8 + chcp 65001 for best emoji/rich A1 output, prints a short PS banner, then delegates to the same .py.
+REM No git involved — pure local PowerShell + python workflow.
+
 echo.
 echo Assistant exited. State/notes saved.
 pause

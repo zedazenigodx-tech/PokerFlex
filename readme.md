@@ -80,8 +80,10 @@ python pokerflex.py --help
 # python -m pokerflex also works (package or after proper install)
 ```
 - **Windows one-click zero-touch (FINAL polished)**: double-click `launch_assistant.bat` (or run `python launch_assistant.py`).
-  This is THE easiest / true 0-touch way to start the background real-time A1 assistant. (Internally ALWAYS --background --live; chooses sim default or real if --real-vision passed; auto applies robust defaults for real; A1 default always; unified logic so .bat double-click gets all polish.)
-  Pass extras without editing: `python launch_assistant.py --real-vision --periodic-capture 10` (or `launch_assistant.bat --real-vision ...` — now delegates fully to .py for single source of defaults).
+  PowerShell users (if you continue in PowerShell on Windows — local only, no git): right-click `launch_assistant.ps1` or run from a PS prompt: `.\launch_assistant.ps1` (or with args `.\launch_assistant.ps1 --client coinpoker --real-vision`).
+  The .ps1 sets UTF-8 + chcp 65001 for clean rich A1 output/emoji, prints a short PS-specific header with ExecutionPolicy + "Run as admin for hotkeys" tips, then delegates to the same .py (single source of truth).
+  This is THE easiest / true 0-touch way to start the background real-time A1 assistant. (Internally ALWAYS --background --live; chooses sim default or real if --real-vision passed; auto applies robust defaults for real; A1 default always; unified logic so .bat/.ps1 double-click gets all polish.)
+  Pass extras without editing: `python launch_assistant.py --real-vision --periodic-capture 10` (or `launch_assistant.bat --real-vision ...` or the .ps1 equivalent — now delegates fully to .py for single source of defaults).
 - The launcher delegates to `run_brain.py` but always surfaces the A1 experience.
 - Supports every flag the runner does. See also `quickstart.txt` (ultra-short copy-paste reference).
 
@@ -92,6 +94,7 @@ All one-click launchers and documented commands default to the new A1 brain.
 **ULTIMATE <10 MIN GET-WORKING GUIDE (exact 0-touch steps; A1 default everywhere):**
 1. INSTALL (once): `pip install -r requirements.txt && pip install -e .` (or double-click install.bat). Optional: `pip install pystray`; install Tesseract binary for real OCR + PATH.
 2. LAUNCH: double-click `launch_assistant.bat` (or `python launch_assistant.py` / `python -m pokerflex --tray --live`).
+   - PowerShell users: `.\launch_assistant.ps1` (or right-click the .ps1). The .ps1 is the natural choice if you continue in PowerShell (local edits + run, no git workflow).
    - Tray/overlay for bg-friendly (menu, popups, hide, startup). Minimize and play.
 3. CALIBRATE ONCE (real vision): `python -m pokerflex calibrate` (or `pokerflex calibrate`). ~2min wizard; auto-loads for --real-vision / launcher.
 4. PLAY: hotkeys (global): Ctrl+Alt+A (analyze/rich A1), S (status), C (capture), O (overlay). Tray menu: Analyze/Status/Notes/Startup/Quit.

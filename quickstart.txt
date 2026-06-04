@@ -10,7 +10,14 @@ EXACT STEPS (copy-paste, from E:\PokerFLex folder; Windows/PowerShell or cmd):
 
 2. LAUNCH zero-touch background assistant (A1 default, auto live listener):
    double-click launch_assistant.bat
-   # or
+   # PowerShell users (recommended if you continue in PowerShell on Windows — no git needed):
+   #   Right-click launch_assistant.ps1 → Run with PowerShell
+   #   Or from PS prompt (best for dev + args):
+   #     .\launch_assistant.ps1
+   #     .\launch_assistant.ps1 --client coinpoker --real-vision --tray
+   #   If policy complains:  powershell -ExecutionPolicy Bypass -File .\launch_assistant.ps1
+   # The .ps1 sets UTF-8 + chcp 65001 for clean emoji/rich A1, prints a short PS banner, then delegates.
+   # or (universal)
    python launch_assistant.py
    # Tray (bg-friendly, menu, popups, overlay, hide console, startup toggle):
    python launch_assistant.py --tray
@@ -75,10 +82,13 @@ RECOMMENDED LAUNCHER (from project root E:\PokerFlex or wherever you cd'ed)
   pokerflex --help
   python pokerflex.py                 # root shim (compat, works identically)
 
-  One-click (Windows): double-click launch_assistant.bat   (or python launch_assistant.py)
+  One-click (Windows): 
+    - double-click launch_assistant.bat   (or python launch_assistant.py)
+    - PowerShell users: right-click launch_assistant.ps1 (or run from PS: .\launch_assistant.ps1 [--client coinpoker ...])
+      The .ps1 is first-class for people who continue in PowerShell (local edits, no git). It handles encoding + gives PS tips + forwards args.
     — starts the zero-touch background live sim mode with good defaults (A1 advice auto-fires).
-    .bat now forwards extra args (e.g. launch_assistant.bat --real-vision --periodic-capture 12); .py always did.
-    All launchers (bat, py, __main__, run_brain, entry points, python -m, GUI) default to new A1 brain (USE_NEW_BRAIN=True module default).
+    .bat / .ps1 now forward extra args; .py is the single source of truth.
+    All launchers (bat, ps1, py, __main__, run_brain, entry points, python -m, GUI) default to new A1 brain (USE_NEW_BRAIN=True module default).
 
   Tray / packaged exe (new easy standalone bg): 
     (pip install pystray)
