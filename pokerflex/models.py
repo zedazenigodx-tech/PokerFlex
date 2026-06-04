@@ -409,6 +409,18 @@ def legacy_to_gamestate(
         except Exception: pass
     if facing_action is not None:
         gs.facing_action = facing_action
+    # Light action_history from vision bet/facing if provided to legacy_to (e.g. villain bet X); only if none present (graceful, caller in _robust controls on street change). Follows patterns for pot/bet_to_call/facing_action.
+    if (not getattr(gs, "action_history", None)) and (bet_to_call or 0) > 0.05 and facing_action:
+        try:
+            st = "flop"
+            try:
+                bst = getattr(getattr(gs, "board", None), "street", None)
+                st = str(bst).lower() if bst else "flop"
+            except Exception:
+                pass
+            gs.append_action({"street": st, "actor": "villain", "action": str(facing_action).replace("facing_","").split("_")[0] or "bet", "size": float(bet_to_call)})
+        except Exception:
+            pass
     return gs
 
 

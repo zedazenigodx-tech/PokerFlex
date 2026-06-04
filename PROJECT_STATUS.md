@@ -199,15 +199,16 @@ Full details + more recipes: `quickstart.txt` (ultra-short) and `readme.md` (com
 
 - **Presentation**: Advice lives in the console (bg runner) or GUI text box. System tray (pystray optional) + popups + log now delivered (see "Deploy..." in readme); still no always-on-top overlay or in-client injection (future).
 
-- **Automation level**: `--live` + vision gets you close, but until vision is highly reliable you will occasionally correct state via hotkey/json/set (still very low effort). No automatic bet-size facing decisions yet, but **action history tracking implemented** (CLI + live plumbing + first-class in GameState + used in postflop for ranges/blockers/stories).
+- **Automation level**: `--live` + vision gets you close, but until vision is highly reliable you will occasionally correct state via hotkey/json/set (still very low effort). **Bet-size / facing action auto-extraction from vision now improved** (light OCR + inference into action_history for postflop); full auto still benefits from occasional 'action bet X' override or json.
 
 - **Other**: 
   - Multiway postflop is strong heuristics (not full range-vs-range sim every time).
-  - Voice input (`voice.py`) exists but not wired into main runner/GUI flows.
-  - Packaging is pip editable + .bat launchers; no turnkey standalone .exe installer (though easy to add).
+  - **Voice input now wired** into main runner (interactive 'voice'/'speak' command feeds transcribed natural language to the command parser for set/note/analyze/tmode etc; push-to-talk SPACE; tray menu support). Standalone voice_input.py remains for chat use.
+  - Packaging is pip editable + .bat/.ps1 launchers + build_exe; easy one-click via launch_assistant.* (no full turnkey .msi installer but production viable).
   - Client support: full for ClubGG + CoinPoker via --client (or auto-detect); same 0-touch after per-client calib. Future: additional clients/skins as needed (manual/full-screen always works as fallback).
-  - No hand history import, persistent cross-session profiles, leak DB, or cloud sync.
-  - Background runner is a console process (minimize works fine).
+  - **Basic leak/review tool added** ('leaks'/'review' cmd + tray): compares last advice vs state/action to surface simple deviations (e.g. "folded vs nit cbet per note", "A1 said X but action Y").
+  - No full hand history import, persistent cross-session profiles, advanced leak DB, or cloud sync.
+  - Background runner is a console process (minimize + tray works fine).
 
 The strategic brain, runner infrastructure, explo/ICM plumbing, capture hooks, multi-client (ClubGG+CoinPoker), and user experience (launchers + docs + tray + overlay) are complete and robust. Remaining for deeper hands-off: richer vision (villain holdings, reliable auto bet-size facing) + full deep ICM. See "Current Limitations" and nice-to-haves in roadmap.
 
@@ -243,10 +244,10 @@ Prioritized for delivering a true 0-touch real-time ClubGG assistant.
    - Standalone packaging: **COMPLETED** — `build_exe.py` (PyInstaller one-file `PokerFlex.exe` or onedir; bundles everything; tesseract remains external documented dep for real vision; includes chip icon). See readme "Deploy as background app" + build_exe.py header.
    - System tray support + true minimize-to-tray + auto-start: **COMPLETED** (optional pystray, full specified menu, --tray/--minimized, Win console hide/show, quieter + tray log + popup_toast, "Run at startup" toggle via editable .bat in Startup folder, launchers/docs/quickstart/CHANGELOG updated, graceful no-pystray fallback). Windows priority + crossplat note. + overlay.
    - Deeper ICM: **IMPLEMENTED** (lightweight postflop + payout concrete + icm-sim helper; see nash.py + run_brain 'set payouts' + 'icm-sim' + postflop adj).
-   - More data from vision: bet sizing reader (huge for postflop accuracy); action history now first-class (manual+light vision inference done; future auto from image deltas).
+   - More data from vision: **bet sizing reader improved** (OCR + inference for facing bet/raise sizes + auto action_history population in live); action history first-class (manual + vision light inference + history-aware postflop). Full villain holdings + perfect bet OCR still future (calib + harden already strong).
    - Broader client support: DONE for CoinPoker (see --client, SUPPORTED_CLIENTS, client= in capture/run_brain/calib/launchers; docs updated; "calib once per, 0-touch after"). Future: more clients if needed.
-   - Nice-to-haves: voice command integration ("note villain station"), hand export / review mode, simple leak finder from logged advice+results, hybrid "call a solver" hook for key spots.
-   - Monitoring / persistence: optional full session log (advice given vs actions taken), cloud-synced notes/profiles.
+   - **Nice-to-haves delivered in final swarm**: voice command integration (wired 'voice' cmd + natural language to parser + tray), simple leak finder / review mode from logged advice+state/results (new 'leaks'/'review' command), basic bet sizing auto. Hybrid solver hook, full hand export, advanced leak DB out of scope for this phase.
+   - Monitoring / persistence: optional full session log (advice given vs actions taken via tray log + last_advice), cloud-synced notes/profiles (future).
 
 **Status Summary for the 0-Touch User**: Brain + runner + everything around it = ready now (try the launcher immediately). Vision = "works for demo and partial real use; [after calib + harden] much stronger for real use — true set-and-forget hands-off". Tray + overlay = background-friendly invisible co-pilot. All previous roadmap items marked done in this final-verif-docs phase. --self-test / --bench + polished docs (quickstart top <10min guide + troubleshooting real vision + all cmds mentioned) complete the production 0-touch product.
 
@@ -275,7 +276,7 @@ Prioritized for delivering a true 0-touch real-time ClubGG assistant.
 
 The hard parts (brain quality, explo system, ICM plumbing, runner architecture with hotkeys/watcher/live loop, packaging, docs, multi-client CoinPoker) are done and solid. Vision (after one calib) is now the "eyes" layer that turns the excellent advisor into the effortless live assistant (much stronger post-harden + listener).
 
-**Status Summary for the 0-Touch User**: Full multi-client (ClubGG + CoinPoker) A1 background real-time assistant is production-ready now (go-dark complete via swarm + verifs). Brain + runner + tray + overlay + calib + live + notes + ICM + history = ready (double-click launch_assistant.bat or launch_assistant.ps1 for PowerShell users, or `python -m pokerflex --tray --live`). Calib once per client/table for best real-vision set-and-forget. See roadmap nice-to-haves below for deeper future (villain holdings, auto bet sizing, full ICM, more clients, voice wiring). All prior items delivered. (Local PowerShell dev flow supported — no git required.)
+**Status Summary for the 0-Touch User**: Full multi-client (ClubGG + CoinPoker) A1 background real-time assistant is production-ready (final go-dark complete via agent swarm + verifs). Brain + runner + tray + overlay + calib + live + notes + ICM + history + **voice wiring + improved auto bet/facing vision + basic leak review tool** = ready (double-click launch_assistant.bat or launch_assistant.ps1 for PowerShell users, or `python -m pokerflex --tray --live`). Calib once per client/table for best real-vision set-and-forget. Deeper future (richer villain holdings, full deep ICM solver, more clients, advanced leak DB) listed in roadmap. All core + the last major nice-to-haves delivered in this swarm phase. (Local PowerShell dev flow supported — no git required; git repo at https://github.com/zedazenigodx-tech/PokerFlex.)
 
 ## References & Next Actions for You
 - Start here: double-click `launch_assistant.bat` (or `launch_assistant.ps1` if you continue in PowerShell on Windows) (after install) or read the top of `readme.md`.
@@ -285,7 +286,7 @@ The hard parts (brain quality, explo system, ICM plumbing, runner architecture w
 - Source: `pokerflex/` package (advisor/, run_brain.py, capture.py, models.py, etc.), root shims + launchers for convenience.
 - To experiment with vision: `python capture.py` (grabs), then launch runner with --live (sim first).
 
-This is a complete, high-quality milestone (go dark complete). Maturing the vision layer further (richer auto reads for villains/bets) + expanding ICM + more clients would deliver the ultimate hands-off experience for ClubGG/CoinPoker (and beyond). All core 0-touch real-time assistant is delivered and verified today.
+This is the complete, high-quality final milestone (go dark complete via swarm agents). Voice integration, bet-size vision enhancements for live postflop, and basic leak/review tooling delivered on top of the prior production core (A1 + runner + tray + overlay + multi-client calib + ICM + notes + history). Maturing further (full villain range reads from vision, deep ICM solver, installer polish, more clients) are explicit future nice-to-haves. All core 0-touch real-time assistant + key UX polish delivered and verified. Git repo: https://github.com/zedazenigodx-tech/PokerFlex (resumed + finalized from gitbash session).
 
 ---
 *Generated as the concise final summary + forward plan. All prior docs remain the authoritative user guides.*

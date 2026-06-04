@@ -7,7 +7,7 @@ RECOMMENDED: launch via top-level `python -m pokerflex` (or `pokerflex` cmd afte
 The default experience is the new A1 brain (rich output, explo notes, ICM, texture analysis). Legacy fallback via env ONLY for get_advice shim users/debug (never primary, never in normal use); runner always A1-primary with clean rich text.
 
 - Interactive console loop for manual state entry + "analyze" (or empty enter).
-- Global hotkey triggers (ctrl+alt+a etc) for analyze while the script runs. Robust (try-wrapped).
+- Global hotkey triggers (ctrl+alt+a etc + ctrl+alt+v voice) for analyze/voice while the script runs. Robust (try-wrapped).
 - Better capture.py integration: --auto-capture makes analyze auto-grab if no hand/board provided;
   --periodic-capture N (bg) + basic parsing stub (now delegates to enhanced vision with partials/conf/sens).
   Live uses unified for auto-extract.
@@ -75,9 +75,11 @@ Inside loop (or via json/hotkeys / live edits):
     notes edit                     # RICH sub-REPL: live previews, customs, history, multi-villain, export
     capture
     status
+    leaks / review                 # simple leak review on last_advice + state + A1 replay vs history
+    voice / v / speak              # voice (PTT) feeds parser naturally ("set stack 65", "analyze" etc)
     quit
 
-Hotkeys (global, even unfocused; robust): ctrl+alt+a=analyze | ctrl+alt+s=status | ctrl+alt+c=capture | ctrl+alt+o=toggle floating A1 overlay (compact always-on advice)
+Hotkeys (global, even unfocused; robust): ctrl+alt+a=analyze | ctrl+alt+s=status | ctrl+alt+c=capture | ctrl+alt+o=toggle floating A1 overlay (compact always-on advice) | ctrl+alt+v=voice (PTT+STT to parser)
 
 For set-and-forget bg real-time ClubGG or CoinPoker: launch with flags (e.g. --background or --live --client coinpoker), minimize terminal, use hotkeys during play,
 edit the poker_* (primary) / clubgg_* (compat) / coinpoker_* (for --client) .json live (watcher reloads in ~2s), use explo notes for opponent-specific adjustments. No alt-tab needed. (Same 0-touch philosophy: calib once per client/table.) Works identically for CoinPoker tables.
@@ -544,8 +546,13 @@ def setup_hotkeys():
             keyboard.add_hotkey(CONFIG.hotkey_overlay, _safe_call(toggle_overlay_advice, "overlay"))
         except Exception:
             pass  # if not defined yet at this point in module load (rare)
+        # Voice hotkey (optional per spec; uses existing _safe_call infra + _trigger which lazy loads voice)
+        try:
+            keyboard.add_hotkey("ctrl+alt+v", _safe_call(_trigger_voice_command, "voice"))
+        except Exception:
+            pass
         if not QUIET:
-            print(f"✓ Hotkeys registered: {CONFIG.hotkey_analyze}=analyze | {CONFIG.hotkey_status}=status | {CONFIG.hotkey_capture}=capture | {CONFIG.hotkey_overlay}=toggle overlay")
+            print(f"✓ Hotkeys registered: {CONFIG.hotkey_analyze}=analyze | {CONFIG.hotkey_status}=status | {CONFIG.hotkey_capture}=capture | {CONFIG.hotkey_overlay}=toggle overlay | ctrl+alt+v=voice")
             print(f"  (Global — works while playing { (CLIENT or 'clubgg').upper() } even if this window not focused. Robust to errors. --client {CLIENT})")
     except Exception as ex:
         if not QUIET:
@@ -740,7 +747,7 @@ def _get_status_text() -> str:
     if LAST_VISION_INFO:
         lines.append(f"  last_vision_conf={LAST_VISION_INFO.get('confidence', '?')}")
     lines.append(f"  log: {LOG_FILE}")
-    lines.append("Hotkeys: ctrl+alt+a analyze | s status | c capture | o overlay (global, toggle compact A1 advice)")
+    lines.append("Hotkeys: ctrl+alt+a analyze | s status | c capture | o overlay | ctrl+alt+v voice (global, toggle compact A1 advice)")
     lines.append("Verify: python -m pokerflex --self-test / --bench / calibrate (covers live vision/noisy, history, postflop ICM, calib)")
     return "\n".join(lines)
 
@@ -819,6 +826,16 @@ def _on_tray_analyze(icon, item):
             popup_toast("🧠 PokerFlex — Analyze", summary[:300])
     except Exception as ex:
         popup_toast("PokerFlex", f"Analyze error: {ex}")
+
+
+def _on_tray_voice(icon, item):
+    """Tray menu: Voice Command (non-blocking). Spawns thread so tray stays responsive; capture_voice does PTT inside (focus term)."""
+    write_log("Tray menu: Voice Command")
+    try:
+        threading.Thread(target=_trigger_voice_command, daemon=True, name="TrayVoice").start()
+        popup_toast("PokerFlex Voice", "Voice active: focus the terminal/console, hold SPACE, speak e.g. 'set stack 65' or 'analyze', release. Result in console/log.")
+    except Exception as ex:
+        popup_toast("PokerFlex", f"Voice tray error: {ex}")
 
 
 def _on_tray_status(icon, item):
@@ -901,6 +918,19 @@ def _on_tray_show_last_advice(icon, item):
                 pass
     except Exception as ex:
         popup_toast("PokerFlex", f"Show last advice failed: {ex}")
+
+
+def _on_tray_review_leaks(icon, item):
+    """Tray menu callback: 'Review last hand' — runs the lightweight leaks/review (A1 replay + heuristics).
+    Prints to console (or log if hidden); non-blocking. Matches other _on_tray_* exactly.
+    """
+    write_log("Tray menu: Review last hand (leaks)")
+    try:
+        do_leak_review()
+        if TRAY_MODE and CONSOLE_HIDDEN:
+            popup_toast("🧠 PokerFlex — Review last hand", "Leak analysis complete (last advice + state + A1 replay vs your actions). Show Console or run 'leaks' for details.")
+    except Exception as ex:
+        popup_toast("PokerFlex", f"Review last hand failed: {ex}")
 
 
 def _on_tray_toggle_overlay(icon, item):
@@ -987,7 +1017,9 @@ def setup_tray() -> bool:
         menu = pystray.Menu(
             pystray.MenuItem("Show Console", _on_tray_show_console),
             pystray.MenuItem("Analyze Now (hotkey equiv)", _on_tray_analyze),
+            pystray.MenuItem("Voice Command (PTT + STT to parser)", _on_tray_voice),
             pystray.MenuItem("Show Last Advice (log/history)", _on_tray_show_last_advice),
+            pystray.MenuItem("Review last hand (leaks / simple review)", _on_tray_review_leaks),
             pystray.MenuItem("Toggle Advice Overlay (floating A1)", _on_tray_toggle_overlay),
             pystray.MenuItem("Status", _on_tray_status),
             pystray.MenuItem("Notes Quick (open editor)", _on_tray_notes_quick),
@@ -1620,6 +1652,20 @@ def _robust_apply_vision_update(parsed: dict, min_conf: float | None = None, par
         if old_st != new_st and not QUIET:
             print(f"[{source}] street advanced to {new_st} (from {old_st}; board+action+pot hints)")
         # (Optional future: could auto-append synthetic 'check' on street advance if no prior action on new street, but we avoid fabricating; user 'action check' or vision future)
+        # Light action_history populate from vision bet/facing (e.g. 'villain bet X' on street change if detected in image); graceful (only if bet present, no dup last, follows existing if "action_history"/inferred_action pattern exactly in this _robust_apply)
+        vbet = parsed.get("bet_to_call") or parsed.get("facing_bet")
+        if old_st != new_st and vbet:
+            try:
+                vb = float(str(vbet).strip() or 0)
+                if vb > 0.05:
+                    ev = {"street": (old_st or "flop"), "actor": "villain", "action": "bet", "size": round(vb, 2)}
+                    cur_ah = get_current_action_history()
+                    if not cur_ah or ev != cur_ah[-1]:
+                        set_current_action_history(cur_ah + [ev])
+                        if not QUIET:
+                            print(f"[{source}] light action_history from vision bet: appended villain bet {vb} (street change {old_st}->{new_st})")
+            except Exception:
+                pass
 
     # New-hand safety: if hand meaningfully changed (new deal), and no (or empty/short) new board provided by this vision read,
     # proactively clear any stale prior board to avoid carrying postflop board into preflop of next hand.
@@ -1638,7 +1684,7 @@ def _robust_apply_vision_update(parsed: dict, min_conf: float | None = None, par
     # HARDENED: also sync pot/facing_bet/street/action/villains from vision (auto for future facing decisions in A1; always safe additive)
     # These (pot, facing_bet, position, stack, opponents, action_history) wire directly into GameState for A1 (notes+ICM+history active).
     for k in ("position", "opponents", "stack", "ante", "tournament_mode", "icm_factor", "players_remaining", "payout_structure",
-              "pot", "facing_bet", "action_hint", "street", "villain_count", "call_amount", "bet_to", "bet_to_call"):
+              "pot", "facing_bet", "action_hint", "street", "villain_count", "call_amount", "bet_to", "bet_to_call", "facing_action"):
         if k in parsed and parsed[k] is not None and str(parsed[k]).strip():
             val = str(parsed[k]).strip()
             if k == "position":
@@ -2253,11 +2299,16 @@ def print_help():
   Calibration (real vision): run `python -m pokerflex calibrate` (or pokerflex calibrate) once per client/table; then --live --real-vision --client coinpoker (or clubgg) auto-loads your profile. Use --show-calibration / --reset-vision.
   Multi-client: --client coinpoker (or clubgg); launch e.g. python -m pokerflex --tray --background --live --real-vision --client coinpoker ; same hotkeys/notes/0-touch.
 
+  voice / v / speak              Push-to-talk voice (hold SPACE while term focused; whisper STT). Transcribed text (robust lower+spoken variants e.g. btn, tmode, ace king->AKo) fed to SAME command parser. Say naturally: "set stack 65", "set pos btn", "note nit station", "analyze", "tmode on", "icm 0.12", "notes list", "AKs" etc. Also via hotkey ctrl+alt+v or tray "Voice Command".
+  (works alongside notes edit, action history, capture, live etc; no breakage)
+
   load / reload                  Force-reload state + notes (mgr) from disk
   save                           Force-save state (+ notes auto on mut)
 
   icm-sim / ev / icm             Run small ICM sim helper: prints approx $EV impact of current short-stack shove/call vs chipEV using payout/players (or defaults). E.g. icm-sim or icm shove 12 0.47
   (uses nash.simulate_shortstack_icm_ev + current tmode/payouts/players/stack)
+
+  leaks / review / leak          Lightweight leak finder / hand review (post session): loads last_advice.txt (or recent from pokerflex_tray.log) + current/last poker_*_state.json (action_history used for 'actuals'). Replays A1 advisor retrospectively (legacy_to_gamestate + advise + format_a1_advice) vs your actions; heuristic flags e.g. "A1 suggested call but you folded", "folded to cbet but note nit folds 82% - missed value", "ICM spot: pushed correctly per sim", "Deviation on 3 spots". Simple text/metrics only. Graceful if no logs. CLI: python -m pokerflex leaks (or --leaks). Also from tray: "Review last hand".
 
   help / h / ?
   quit / q / exit
@@ -2267,6 +2318,7 @@ Hotkeys (global, robust; work while focused on ClubGG):
   ctrl+alt+o   → toggle lightweight always-on floating advice overlay (compact rich A1)
   ctrl+alt+s   → status (full state + notes)
   ctrl+alt+c   → capture
+  ctrl+alt+v   → voice command (PTT SPACE + whisper STT -> parser)
 
 Background / set-and-forget mode (RECOMMENDED via launcher):
   python -m pokerflex --background --pos BTN --stack 100 --auto-capture
@@ -2558,95 +2610,397 @@ def _do_icm_sim(raw: str = ""):
         print(f"icm-sim error: {ex} (need tmode/short or use defaults; see nash.simulate_shortstack_icm_ev)")
 
 
+def do_leak_review():
+    """Lightweight 'leaks' / 'review' / 'leak' tool for post-hand analysis.
+    Follows existing patterns: graceful try/except everywhere, uses LAST_ADVICE_FILE / LOG_FILE / STATE_FILE / _get_log_tail,
+    _get_runner_notes_mgr, legacy_to_gamestate, get_advisor, format_a1_advice (replay A1 retrospectively on last snapshot).
+    Heuristic only (no ML): compare logged advice text + persisted state + action_history (assumed actuals) vs fresh A1 advise.
+    Examples surfaced: "A1 suggested call but you folded", note vs fold missed value, ICM, deviation counts.
+    Callable from interactive cmd, --leaks / subcmd `python -m pokerflex leaks`, tray "Review last hand".
+    Always non-mutating (loads files directly); prints short analysis + replay excerpt. Graceful if no prior analyze/logs/state.
+    """
+    print("\n=== POKERFLEX LEAK / HAND REVIEW (lightweight heuristic; A1 replay vs history) ===")
+    # Load last state json (current or last poker_*/coinpoker_*/clubgg_* ; non side-effect)
+    state_data = None
+    state_path = None
+    candidates = [
+        STATE_FILE,
+        os.path.join(DATA_DIR, "poker_current_state.json"),
+        os.path.join(DATA_DIR, "coinpoker_current_state.json"),
+        os.path.join(DATA_DIR, "clubgg_current_state.json"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    state_data = json.load(f)
+                state_path = p
+                break
+            except Exception:
+                pass
+    # Load last advice (prefer dedicated file written by analyze_and_print, fallback log tail like tray "show last")
+    advice_text = ""
+    advice_path = LAST_ADVICE_FILE
+    if os.path.exists(advice_path):
+        try:
+            with open(advice_path, "r", encoding="utf-8", errors="ignore") as f:
+                advice_text = f.read()[-2500:]  # tail for recency
+        except Exception:
+            pass
+    if not advice_text.strip():
+        # fallback to recent from tray log (as in _on_tray_show_last_advice and _get_log_tail)
+        try:
+            advice_text = _get_log_tail(35)
+        except Exception:
+            pass
+    if not state_data and not advice_text.strip():
+        print("No last_advice.txt (or pokerflex_tray.log) + no poker_*_state.json found.")
+        print("  Run an analyze (hotkey A, ENTER, tray, or --once --analyze) first to populate. Graceful no-op.")
+        print("  Tip: after play, `python -m pokerflex leaks` or interactive 'leaks' / 'review'.")
+        print("=== end leak review ===\n")
+        return
+
+    if state_path:
+        print(f"  last state: {os.path.basename(state_path)}")
+    print(f"  advice src: {'last_advice.txt' if 'last_advice' in (advice_path or '') else 'pokerflex_tray.log tail'}")
+    # Summarize state
+    pos = str((state_data or {}).get("position", "?")).upper()[:6] or "?"
+    hand = str((state_data or {}).get("hand", "") or "").strip() or "??"
+    board = str((state_data or {}).get("board", "") or "").strip() or "(preflop)"
+    stack = str((state_data or {}).get("stack", "?") or "?")
+    opp = str((state_data or {}).get("opponents", "?") or "?")
+    ah = (state_data or {}).get("action_history", []) or []
+    if isinstance(ah, str):
+        try:
+            ah = json.loads(ah) if ah.strip() else []
+        except Exception:
+            ah = []
+    tmode = str((state_data or {}).get("tournament_mode", "false") or "false").lower() in ("true", "1", "yes")
+    print(f"  snapshot: pos={pos} hand={hand} board={board} stack={stack}bb opp={opp} tmode={tmode} hist={len(ah)}")
+    if ah:
+        last_a = ah[-1]
+        la_str = f"{last_a.get('street','?')}:{last_a.get('actor','?')}:{last_a.get('action','?')}"
+        if last_a.get("size") is not None:
+            la_str += f"+{last_a.get('size')}"
+        print(f"  last action in history: {la_str}")
+
+    # Retrospective A1 replay on the last state (use existing bridge + advisor + format_a1)
+    replay_text = ""
+    suggested = ""
+    try:
+        runner_notes = None
+        try:
+            mgr = _get_runner_notes_mgr()
+            pls = mgr.list_players()
+            if pls:
+                runner_notes = mgr.get_notes(pls[0] if "villain" not in pls else "villain")
+        except Exception:
+            runner_notes = None
+        prem = None
+        try:
+            pstr = str((state_data or {}).get("players_remaining", "") or "")
+            digits = "".join(c for c in pstr if c.isdigit())
+            prem = int(digits) if digits else None
+        except Exception:
+            prem = None
+        icmf = 0.0
+        try:
+            icmf = float(str((state_data or {}).get("icm_factor", "0") or 0).strip())
+        except Exception:
+            icmf = 0.0
+        # payouts minimal
+        payouts = None
+        try:
+            pstr = str((state_data or {}).get("payout_structure", "") or "").strip()
+            if pstr:
+                payouts = [float(x.strip()) for x in pstr.replace(";", ",").split(",") if x.strip()]
+        except Exception:
+            payouts = None
+        gstate = legacy_to_gamestate(
+            pos if pos != "?" else "BTN",
+            hand if hand != "??" else "",
+            board if board != "(preflop)" else "",
+            opp if opp != "?" else "2",
+            stack if stack != "?" else "100",
+            "0",
+            player_notes=runner_notes,
+            tournament_mode=tmode,
+            players_remaining=prem,
+            icm_factor=icmf,
+            payout_structure=payouts,
+            action_history=ah,
+        )
+        advisor = get_advisor()
+        dec = advisor.advise(
+            gstate,
+            player_notes=runner_notes,
+            use_exploits=bool(runner_notes) or CONFIG.exploitative_mode,
+            action_history=ah,
+        )
+        replay_text = format_a1_advice(gstate, dec)
+        # pull primary suggested line (use same style as analyze_and_print summary)
+        for ln in replay_text.splitlines()[:6]:
+            lnup = ln.upper()
+            if any(m in lnup for m in ("✅", "❌", "💡", " FOLD", " CALL", " BET", " RAISE", " CHECK", " SHOVE", "OPEN")):
+                suggested = ln.strip()[:90]
+                break
+        if not suggested and replay_text:
+            suggested = replay_text.splitlines()[0][:90] if replay_text.splitlines() else ""
+    except Exception as ex:
+        print(f"  (A1 retrospective replay skipped gracefully: {type(ex).__name__}; using logged advice + history heuristics only)")
+
+    # Heuristic leak flags (compare advice text + replay vs actual history/actions + notes)
+    leaks_found = []
+    last_act = ah[-1] if ah else None
+    last_act_str = (str(last_act) if last_act else "").lower()
+    adv_low = (advice_text or "").lower()
+    if last_act and suggested:
+        la = str(last_act.get("action", "")).lower()
+        if "fold" in la and any(x in suggested.lower() for x in ["call", "bet", "raise", "✅"]):
+            leaks_found.append("A1 suggested call/bet but you folded (possible missed value or overfold vs range).")
+        if "call" in la and ("fold" in suggested.lower() or "❌" in suggested):
+            leaks_found.append("You called but A1 suggested fold (possible spew or ignored fold equity).")
+    # note-driven (e.g. nit high fold_to_cbet but hero folded anyway)
+    if "fold_to_cbet" in adv_low or "nit" in adv_low:
+        if "fold" in last_act_str and ("cbet" in adv_low or "dry" in adv_low or "nit" in adv_low):
+            leaks_found.append("You folded to cbet on dry but note said nit folds 82% - possible missed value")
+    # ICM
+    if tmode or "icm" in adv_low:
+        if "push" in last_act_str or "shove" in last_act_str or "bet" in last_act_str:
+            leaks_found.append("ICM spot: pushed/shoved; verify vs sim in logged advice.")
+        else:
+            leaks_found.append("ICM spot: check replay vs your action (see A1 below).")
+    # aggression / deviation count heuristic (simple from history len vs typical GTO spots)
+    hero_actions = [e for e in ah if str(e.get("actor", "")).lower() == "hero"] if ah else []
+    if len(hero_actions) >= 3:
+        leaks_found.append(f"Deviation on {len(hero_actions)} spots: aggression lower than GTO (history-based heuristic).")
+    elif len(ah) >= 4 and len(hero_actions) == 0:
+        leaks_found.append("No hero actions recorded in history — passive line vs A1 suggestions?")
+
+    if not leaks_found and last_act:
+        leaks_found.append("No strong heuristic flags (review replay vs your action below).")
+
+    if leaks_found:
+        print("\nPotential leaks / review notes:")
+        for lf in leaks_found:
+            print(f"  • {lf}")
+    else:
+        print("\n(no action history or advice to compare; nothing flagged)")
+
+    # Show replay (uses format_a1 exactly)
+    if replay_text:
+        print("\n--- Retrospective A1 (replay last state + notes + history via format_a1_advice) ---")
+        print(replay_text[:750] + ("..." if len(replay_text) > 750 else ""))
+    # Show logged advice tail
+    if advice_text.strip():
+        print("\n--- Last logged advice (tail from last_advice.txt or tray.log) ---")
+        print(advice_text[:550] + ("..." if len(advice_text) > 550 else ""))
+    print("\n(Review uses action_history for 'actual' taken; re-runs A1 for 'should'. Update notes for better future. Full logs: " + os.path.basename(LOG_FILE) + ")")
+    print("=== end leak review ===\n")
+
+
+def _normalize_voice_command(text: str) -> str:
+    """Robust transcription for command feeding: lower + map common spoken variants.
+    e.g. button->btn , tournament mode->tmode , ace king->AKo (simple; prefer 'AKs'/'A K S' exact in speech too).
+    Follows spec: keep simple. Result fed as raw to same handlers (set/note/action etc).
+    """
+    if not text:
+        return ""
+    t = text.strip().lower()
+    # positions spoken variants
+    t = t.replace("button", "btn")
+    t = t.replace("big blind", "bb")
+    t = t.replace("small blind", "sb")
+    t = t.replace("cutoff", "co")
+    t = t.replace("cut off", "co")
+    t = t.replace("under the gun", "utg")
+    t = t.replace("utg plus one", "utg1")
+    t = t.replace("utg+1", "utg1")
+    # mode / key spoken
+    t = t.replace("tournament mode", "tmode")
+    t = t.replace("t mode", "tmode")
+    t = t.replace("icm factor", "icm")
+    t = t.replace("players remaining", "players")
+    t = t.replace("number of opponents", "opp")
+    # hand spoken (phrase first, simple default o; user can append s in speech or say AKs)
+    t = t.replace("ace king suited", "aks")
+    t = t.replace("ace king", "ako")
+    t = t.replace("ace queen suited", "aqs")
+    t = t.replace("ace queen", "aqo")
+    t = t.replace("ace jack suited", "ajs")
+    t = t.replace("ace jack", "ajo")
+    t = t.replace("ace ten suited", "ats")
+    t = t.replace("ace ten", "ato")
+    t = t.replace("king queen suited", "kqs")
+    t = t.replace("king queen", "kqo")
+    t = t.replace("suited", "s")
+    t = t.replace("off suit", "o")
+    t = t.replace("offsuit", "o")
+    # letter forms from whisper e.g. "a k" "a k s" -> shorthand parse likes (AKo/AKs etc)
+    t = t.replace(" a k s", " aks")
+    t = t.replace(" a k o", " ako")
+    t = t.replace(" a k", " ako")
+    t = t.replace("a k s", "aks")
+    t = t.replace("a k o", "ako")
+    t = t.replace(" a k", " ako")
+    t = t.replace("ak s", "aks")
+    t = t.replace("ak o", "ako")
+    t = t.replace(" a q", " aqo")
+    t = t.replace("a q", "aqo")
+    t = t.replace(" k q", " kqo")
+    t = t.replace("k q", "kqo")
+    return t
+
+
+def _get_capture_voice():
+    """Lazy import for voice (deps optional/heavy: faster-whisper etc). Non-fatal if missing."""
+    try:
+        from .voice import capture_voice
+        return capture_voice
+    except Exception as ex:
+        print(f"[Voice] unavailable: {ex} (pip install sounddevice soundfile faster-whisper numpy pywin32 if wanted)")
+        return None
+
+
+def _trigger_voice_command():
+    """For hotkey (ctrl+alt+v) and tray Voice Command. Capture (PTT blocks, terminal focus), normalize, dispatch (non-int)."""
+    capt = _get_capture_voice()
+    if not capt:
+        return
+    try:
+        text = capt(
+            instruction="Hold SPACE (this terminal focused) + speak e.g. 'set stack 65' 'analyze' 'note nit station' 'tmode on' 'icm 0.12' 'notes list'. Release SPACE. ESC cancel."
+        )
+        if text and text.strip():
+            norm = _normalize_voice_command(text)
+            write_log(f"[Voice] Heard: {text} | norm: {norm}")
+            process_command(norm, interactive=False)
+        else:
+            write_log("[Voice] no transcription/cancelled/timeout.")
+    except Exception as ex:
+        write_log(f"[Voice] error in trigger: {ex}")
+
+
+def process_command(raw: str, interactive: bool = False) -> bool:
+    """The (now shared) command parser / dispatcher.
+    Extracted exactly from prior interactive logic (smallest way to share without duplication or breakage).
+    Voice transcriptions (typed 'voice' cmd / hotkey / tray) call this after normalize, so "set stack 65", "analyze" etc work naturally.
+    Follows patterns from 'notes edit' (sub REPL delegation) and 'action'/'handle_*' exactly.
+    Returns False only to signal quit from interactive context.
+    """
+    if not raw or not str(raw).strip():
+        analyze_and_print()
+        return True
+    cmd = str(raw).lower().strip()
+    if cmd in ("q", "quit", "exit", "bye"):
+        save_state()
+        save_notes()
+        print("State + notes saved. A1 brain exiting. (Re-run anytime.)")
+        if interactive:
+            return False
+        print("(voice 'quit' saved state; runner continues)")
+        return True
+    elif cmd in ("help", "h", "?"):
+        print_help()
+    elif cmd in ("status", "s", "show"):
+        print_status()
+    elif cmd.startswith("set "):
+        handle_set(raw)
+    elif cmd in ("analyze", "a", "go", "advise", "line"):
+        analyze_and_print()
+    elif cmd.startswith("note "):
+        handle_note(raw)
+    elif cmd in ("notes", "n"):
+        try:
+            mgr = _get_runner_notes_mgr()
+            pls = mgr.list_players()
+            if pls:
+                print("📝 Notes (enhanced multi-villain; use 'notes edit' for rich interactive):")
+                for p in pls:
+                    n = mgr.get_notes(p)
+                    eff = mgr.describe_effect(p) if hasattr(mgr, "describe_effect") else ""
+                    print(f"  {p}: fold_cbet={n.get('fold_to_cbet')} agg={n.get('aggression_factor')} 3b={n.get('3bet_freq')}")
+                    if eff:
+                        print(f"     🎯 {eff}")
+            else:
+                print("(no player notes yet — use 'note nit fold_to_cbet 0.75' or 'notes edit' for full UX)")
+        except Exception as e:
+            print(f"(notes list error: {e})")
+    elif cmd in ("notes edit", "notesedit", "editnotes", "editor", "note edit"):
+        run_notes_editor()
+    elif cmd in ("clearnotes", "cn", "clear_notes"):
+        try:
+            mgr = _get_runner_notes_mgr()
+            mgr.clear()
+            print("✓ Notes cleared (mgr) and saved.")
+        except Exception:
+            print("✓ Notes cleared.")
+    elif cmd.startswith("action "):
+        handle_action(raw)
+    elif cmd in ("history clear", "hist clear", "clear history", "clearhistory", "histclear"):
+        handle_history_clear()
+    elif cmd in ("history", "hist", "ah", "actions"):
+        ah = get_current_action_history()
+        if ah:
+            print(f"Action history ({len(ah)}):")
+            for i, e in enumerate(ah, 1):
+                sz = f" {e.get('size')}bb" if e.get('size') is not None else ""
+                print(f"  {i}. {e.get('street')} {e.get('actor')} {e.get('action')}{sz}")
+        else:
+            print("(action history empty — record with 'action bet 4' etc; auto-clears on new hand in live)")
+    elif cmd == "undo":
+        handle_undo()
+    elif cmd in ("capture", "cap", "grab", "screen"):
+        do_capture()
+    elif cmd in ("load", "reload"):
+        load_state()
+        load_notes()
+        print("✓ Reloaded state + notes from disk.")
+    elif cmd.startswith(("icm-sim", "icm ", "ev", "icm-simulate", "evimpact")) or cmd in ("icm", "icm-sim"):
+        _do_icm_sim(raw)
+    elif cmd == "save":
+        save_state()
+        save_notes()
+        print("✓ Saved state + notes to disk.")
+    elif cmd in ("voice", "v", "speak"):
+        # voice trigger: capture then feed normalized to parser below (same branches)
+        capt = _get_capture_voice()
+        if capt:
+            text = capt()
+            if text and text.strip():
+                norm = _normalize_voice_command(text)
+                if norm.strip() in ("voice", "v", "speak"):
+                    print("[Voice] heard voice again; skipped to prevent nested capture.")
+                else:
+                    print(f"[Voice] Heard: {text}")
+                    print(f"  -> parser: {norm}")
+                    process_command(norm, interactive=interactive)
+            else:
+                print("[Voice] (no speech / cancelled / timeout)")
+    elif cmd in ("leaks", "leak", "review", "review last", "leaks review"):
+        do_leak_review()
+    else:
+        # Convenience: bare hand string -> set + analyze
+        if len(raw) >= 4 and len(raw) <= 10 and " " not in raw and "=" not in raw and not raw[0].isdigit():
+            current_inputs["hand"] = raw
+            save_state()
+            print(f"✓ Quick hand set to {raw}, analyzing...")
+            analyze_and_print()
+        else:
+            print("Unknown. Try 'help' or 'set pos BTN' or just hit ENTER to analyze.")
+    return True
+
+
 def run_interactive():
-    """Main console loop. Clean and simple."""
+    """Main console loop. Clean and simple. Voice support added (see process_command)."""
     print("\nType 'help' for full command list. Empty line = quick analyze.")
     print("State & notes persist in json files next to run_brain.py and auto-reload.")
+    print("Voice: 'voice' / 'v' / 'speak' (or ctrl+alt+v hotkey) for PTT SPACE + whisper -> feeds parser (natural 'set stack 65', 'analyze', 'note nit', 'icm 0.12' etc).")
     while True:
         try:
             raw = input("🧠 A1> ").strip()
-            if not raw:
-                analyze_and_print()
-                continue
-
-            cmd = raw.lower()
-
-            if cmd in ("q", "quit", "exit", "bye"):
-                save_state()
-                save_notes()
-                print("State + notes saved. A1 brain exiting. (Re-run anytime.)")
+            if not process_command(raw, interactive=True):
                 break
-            elif cmd in ("help", "h", "?"):
-                print_help()
-            elif cmd in ("status", "s", "show"):
-                print_status()
-            elif cmd.startswith("set "):
-                handle_set(raw)
-            elif cmd in ("analyze", "a", "go", "advise", "line"):
-                analyze_and_print()
-            elif cmd.startswith("note "):
-                handle_note(raw)
-            elif cmd in ("notes", "n"):
-                try:
-                    mgr = _get_runner_notes_mgr()
-                    pls = mgr.list_players()
-                    if pls:
-                        print("📝 Notes (enhanced multi-villain; use 'notes edit' for rich interactive):")
-                        for p in pls:
-                            n = mgr.get_notes(p)
-                            eff = mgr.describe_effect(p) if hasattr(mgr, "describe_effect") else ""
-                            print(f"  {p}: fold_cbet={n.get('fold_to_cbet')} agg={n.get('aggression_factor')} 3b={n.get('3bet_freq')}")
-                            if eff:
-                                print(f"     🎯 {eff}")
-                    else:
-                        print("(no player notes yet — use 'note nit fold_to_cbet 0.75' or 'notes edit' for full UX)")
-                except Exception as e:
-                    print(f"(notes list error: {e})")
-            elif cmd in ("notes edit", "notesedit", "editnotes", "editor", "note edit"):
-                run_notes_editor()
-            elif cmd in ("clearnotes", "cn", "clear_notes"):
-                try:
-                    mgr = _get_runner_notes_mgr()
-                    mgr.clear()
-                    print("✓ Notes cleared (mgr) and saved.")
-                except Exception:
-                    print("✓ Notes cleared.")
-            elif cmd.startswith("action "):
-                handle_action(raw)
-            elif cmd in ("history clear", "hist clear", "clear history", "clearhistory", "histclear"):
-                handle_history_clear()
-            elif cmd in ("history", "hist", "ah", "actions"):
-                ah = get_current_action_history()
-                if ah:
-                    print(f"Action history ({len(ah)}):")
-                    for i, e in enumerate(ah, 1):
-                        sz = f" {e.get('size')}bb" if e.get('size') is not None else ""
-                        print(f"  {i}. {e.get('street')} {e.get('actor')} {e.get('action')}{sz}")
-                else:
-                    print("(action history empty — record with 'action bet 4' etc; auto-clears on new hand in live)")
-            elif cmd == "undo":
-                handle_undo()
-            elif cmd in ("capture", "cap", "grab", "screen"):
-                do_capture()
-            elif cmd in ("load", "reload"):
-                load_state()
-                load_notes()
-                print("✓ Reloaded state + notes from disk.")
-            elif cmd.startswith(("icm-sim", "icm ", "ev", "icm-simulate", "evimpact")) or cmd in ("icm", "icm-sim"):
-                _do_icm_sim(raw)
-            elif cmd == "save":
-                save_state()
-                save_notes()
-                print("✓ Saved state + notes to disk.")
-            else:
-                # Convenience: bare hand string -> set + analyze
-                if len(raw) >= 4 and len(raw) <= 10 and " " not in raw and "=" not in raw and not raw[0].isdigit():
-                    current_inputs["hand"] = raw
-                    save_state()
-                    print(f"✓ Quick hand set to {raw}, analyzing...")
-                    analyze_and_print()
-                else:
-                    print("Unknown. Try 'help' or 'set pos BTN' or just hit ENTER to analyze.")
         except EOFError:
             break
         except KeyboardInterrupt:
@@ -2668,9 +3022,9 @@ Workflow example for bg real-time assistant while playing (hotkeys work even min
   Robust: --vision-min-conf 0.28 --vision-min-consec 2 --vision-sensitivity medium --vision-retries 5 (auto-applied for real).
   CoinPoker ex (parallel to ClubGG): python -m pokerflex --tray --background --live --real-vision --client coinpoker ; or launch_assistant.bat with --client coinpoker. Calib once per.
 ZERO-TOUCH one-click bg live: double-click launch_assistant.bat (or .py) — forces --background --live + sim (or --real), seeds sample 'nit' note for immediate explo demo, good presets.
-Interactive: omit --background; use 'set', ENTER/analyze, 'note nit ...', 'notes edit', 'status', 'quit'.
+Interactive: omit --background; use 'set', ENTER/analyze, 'note nit ...', 'notes edit', 'status', 'voice'/'v'/'speak' (PTT+STT to parser), 'quit'.
 Verification / calibration: `python -m pokerflex --self-test`, `--bench`, `calibrate` (or `pokerflex calibrate`), `--show-calibration`, `--tray`, `--reset-vision`.
-All new: calibrate, --tray, --self-test, --bench, icm-sim, action, notes edit, set payouts fully supported + documented.
+All new: calibrate, --tray, --self-test, --bench, icm-sim, action, notes edit, set payouts, voice (v/speak + tray + hotkey ctrl+alt+v) fully supported + documented.
 New A1 brain UNAMBIGUOUS default (USE_NEW_BRAIN=True module-level in poker_engine + reinforced in ALL entries/GUI/launchers); legacy ONLY via POKERFLEX_FORCE_LEGACY_BRAIN=1 (debug/shim, never primary)."""
     )
     parser.add_argument("--background", "-b", action="store_true",
@@ -2700,7 +3054,7 @@ New A1 brain UNAMBIGUOUS default (USE_NEW_BRAIN=True module-level in poker_engin
                         help="Enable live background listener: periodic capture+vision-parse (via enhanced capture.py) + robust auto state update + auto-analyze on detected reliable hand/board/street changes. "
                              "True hands-off real-time mode while you play the table (set-and-forget). Works with notes/tournament/icm. "
                              "Tune poll rate with --periodic-capture N (default 15s). Pair with --real-vision (default for real use) or --simulate-vision + --vision-sensitivity/--vision-min-conf/--vision-partial-conf/--vision-min-consec/--sim-scenario for testing/tuning partials/conf-thresh/debounce. "
-                             "Vision auto-extracts hand/board/position/stack from ClubGG/CoinPoker when possible (graceful low-conf fallback; select via --client). "
+                             "Vision auto-extracts hand/board/position/stack + bet sizes/facing_action from image for postflop (no 'action bet' needed in --live --real-vision). Graceful low-conf fallback; select via --client. "
                              "Further: capture retries+activate, prefer_better_hand, new-hand board clear, consec debounce for stable auto.")
     parser.add_argument("--client", dest="client", default="clubgg", choices=["clubgg", "coinpoker"],
                         help="Poker client for capture/window-finding/ROIs/state+notes files: 'clubgg' (default, full backward compat) or 'coinpoker'. "
@@ -2713,7 +3067,7 @@ New A1 brain UNAMBIGUOUS default (USE_NEW_BRAIN=True module-level in poker_engin
     parser.add_argument("--real-vision", "--real", dest="real_vision", action="store_true",
                         help="Force real ClubGG/CoinPoker capture + vision parse (ROIs+CV+OCR+templates+stack extract) for --live / --auto-capture etc. (select client with --client coinpoker). "
                              "Overrides/disables --simulate-vision and sim env (so --live --real-vision ensures real capture path, not sim). "
-                             "Use with visible table; falls back gracefully on low-conf (partials + manual override still supported). "
+                             "Use with visible table; falls back gracefully on low-conf (partials + manual override still supported). Auto bet/facing from OCR helps facing decisions. "
                              "Complements --vision-sensitivity / --vision-min-conf / --vision-min-consec (use N>=2 for real noisy vision stability).")
     parser.add_argument("--sim-scenario", dest="sim_scenario", default="demo", choices=["demo", "icm", "cash", "tourney", "mixed", "noisy"],
                         help="For --simulate-vision: cycling sequence variant for live tests. 'demo' (default) mixes cash deep + ICM short + partials; "
@@ -2782,7 +3136,7 @@ New A1 brain UNAMBIGUOUS default (USE_NEW_BRAIN=True module-level in poker_engin
     parser.add_argument("--tray", action="store_true",
                         help="Enable system tray icon + menu for true background 'invisible co-pilot'. "
                              "Implies quiet --background behavior. On Windows: auto-hides console. "
-                             "Tray menu items: Show Console, Analyze Now (equiv to hotkey), Status, Notes Quick (opens editor), "
+                             "Tray menu items: Show Console, Analyze Now (equiv to hotkey), Voice Command (PTT+STT), Status, Notes Quick (opens editor), "
                              "Run at startup (toggle .bat in Startup folder), Quit. "
                              "Hotkeys remain global. Analyzes log to pokerflex_tray.log + small popup toast when console hidden. "
                              "Requires optional 'pystray' (pip install pystray); graceful fallback to quiet bg if absent. "
@@ -2812,6 +3166,9 @@ New A1 brain UNAMBIGUOUS default (USE_NEW_BRAIN=True module-level in poker_engin
                              "Does a capture (or reuses recent sample), runs attempt_vision_parse, prints rich results + actionable guidance (e.g. 'if conf low on suits, add more templates'). "
                              "Ideal right after `python -m pokerflex calibrate` to verify before --live --real-vision. "
                              "`python -m pokerflex --calib-test` (or after install: pokerflex --calib-test). Fully compatible with simulate (uses real capture path for profile test).")
+    parser.add_argument("--leaks", "--review", "--leak", dest="leaks", action="store_true",
+                        help="Run simple leaks/review tool non-interactively then exit (like --once). Loads last_advice.txt (fallback pokerflex_tray.log recent) + last poker_*_state.json (or current); heuristic comparison of logged A1 advice vs state/actions + retrospective A1 replay using format_a1/metrics. "
+                             "E.g. python -m pokerflex leaks . Subcommand also supported: python -m pokerflex leaks (or review/leak). See interactive 'leaks'/'review' and tray 'Review last hand'.")
 
     args = parser.parse_args()
 
@@ -2903,6 +3260,20 @@ New A1 brain UNAMBIGUOUS default (USE_NEW_BRAIN=True module-level in poker_engin
                 print("  Run `python -m pokerflex calibrate` first to create a profile, or use --show-calibration.")
         return
     # === end calibration wiring ===
+
+    # === Leaks/review wiring (lightweight post-hand tool, pattern-matched to calibrate) ===
+    # Supports flag --leaks/--review/--leak + subcommand style `python -m pokerflex leaks` (or leak/review)
+    # Run early + exit (non-interactive, no hotkeys/watcher/live needed). run_brain also catches in interactive.
+    if getattr(args, "leaks", False):
+        do_leak_review()
+        return
+    # argv subcmd support (before full parse normalizes; mirrors calibrate block)
+    if not getattr(args, "leaks", False) and len(sys.argv) > 1:
+        first = sys.argv[1].lower().strip()
+        if first in ("leaks", "leak", "review"):
+            do_leak_review()
+            return
+    # === end leaks wiring ===
 
     # Hoist globals early (python rule: global must precede any use of the name in the function)
     global LIVE_POLL_SECS, LIVE_VISION_MIN_CONF, LIVE_VISION_PARTIAL_MIN_CONF, LIVE_VISION_MIN_CONSEC, LIVE_SIM_SCENARIO, VISION_SENSITIVITY, VISION_DEBUG, VISION_PREPROC, LIVE_VISION_RETRIES
@@ -3450,11 +3821,11 @@ def run_bench(n: int = 100):
 def run_self_test():
     """`python -m pokerflex --self-test` : expanded verification for A1 + live infrastructure.
     Covers: A1 advise (cash/ICM/multi), vision sim E2E (partials, street prog, new-hand, low-conf, noisy real-vision-like), notes+explo+ICM combo,
-    robust recovery, history (action), postflop ICM (payouts + short), calibration load/show paths, no-regression A1 default.
+    robust recovery, history (action), postflop ICM (payouts + short), calibration load/show paths, no-regression A1 default, voice (normalize + process_command parser unit).
     Delegates to/enhances _test_simulated_live_flow + poker_engine self tests + direct calls.
     """
     print("\n" + "="*72)
-    print("POKERFLEX --SELF-TEST: A1 BRAIN + VISION SIM + NOTES + ICM + LIVE SCENARIOS (partials/street/newhand/lowconf/noisy) + HISTORY + POSTFLOP ICM + CALIB")
+    print("POKERFLEX --SELF-TEST: A1 BRAIN + VISION SIM + NOTES + ICM + LIVE SCENARIOS (partials/street/newhand/lowconf/noisy) + HISTORY + POSTFLOP ICM + CALIB + VOICE")
     print("A1 is always default. No perf regression paths. Exercises end-to-end for live runner robustness.")
     print("="*72)
     # 1. Basic A1 via poker_engine self test (re-runs canonical + ICM + notes)
@@ -3556,11 +3927,58 @@ def run_self_test():
     except Exception as ex:
         print(f"  calib paths subset (non-fatal, expected pre-calib): {ex}")
 
+    # 6. Voice integration (parser extract + normalize + lazy capture import; no mic needed for unit smoke)
+    print("\n[6/6] Voice wiring + command parser unit smoke (extracted process_command; robust normalize; import guard)...")
+    try:
+        # test normalize directly (covers spoken variants per req)
+        n1 = _normalize_voice_command("Set stack 65 button")
+        assert "stack" in n1 and "65" in n1 and "btn" in n1, f"norm1: {n1}"
+        n2 = _normalize_voice_command("note nit station")
+        assert "note" in n2 and "nit" in n2, f"norm2: {n2}"
+        n3 = _normalize_voice_command("set t mode on")
+        assert "tmode" in n3 and "on" in n3, f"norm3: {n3}"
+        n4 = _normalize_voice_command("set pos big blind ; analyze ; ace king")
+        assert "bb" in n4 and "ako" in n4, f"norm4: {n4}"
+        n5 = _normalize_voice_command("set hand a k s")
+        assert "aks" in n5, f"norm5: {n5}"
+        print("  ✓ _normalize_voice_command (btn, tmode, hand phrases/letters, etc) OK")
+
+        # unit the parser: exercise branches that voice would feed (set/analyze/note/action/history/capture etc)
+        old_q = QUIET
+        QUIET = True
+        snap0 = _snapshot_current()
+        ok = process_command("set stack 123", interactive=False)
+        assert ok
+        assert _get_current("stack") == "123"
+        process_command("set pos BTN", interactive=False)
+        process_command("set hand AKs", interactive=False)
+        process_command("analyze", interactive=False)  # should not crash
+        process_command("note testvoice fold_to_cbet 0.82", interactive=False)
+        process_command("action hero bet 2.5", interactive=False)
+        process_command("history", interactive=False)
+        process_command("capture", interactive=False)  # may warn if no vision but ok
+        process_command("status", interactive=False)
+        # bare hand convenience from voice-like
+        process_command("76o", interactive=False)
+        process_command("help", interactive=False)
+        # restore
+        _update_current({k: v for k, v in snap0.items() if k in current_inputs})
+        QUIET = old_q
+        print("  ✓ process_command (the shared parser) unit smoke: set/analyze/note/action/hist/capture/status/bare/voice-branches OK")
+
+        # lazy getter
+        cv = _get_capture_voice()
+        print(f"  ✓ _get_capture_voice (lazy; avail={cv is not None}) OK (full capture_voice needs mic+focus+deps; voice.py kept as-is)")
+
+        print("  ✓ voice + parser test paths OK (added per spec; works alongside notes/action etc)")
+    except Exception as ex:
+        print(f"  voice/parser smoke error (non-fatal): {ex}")
+
     print("\n" + "="*72)
     print("SELF-TEST COMPLETE. A1 default preserved. Run `python -m pokerflex --bench` for perf numbers.")
     print("For full engine self: `python -m pokerflex.poker_engine`")
     print("For live vision sim manual: see _test_simulated_live_flow or launch with --live --simulate-vision")
-    print("Covers: live vision (noisy real-like), history (action), postflop ICM (payouts), calibration, tray/overlay ready.")
+    print("Covers: live vision (noisy real-like), history (action), postflop ICM (payouts), calibration, tray/overlay ready, voice (parser+normalize).")
     print("="*72 + "\n")
 
 

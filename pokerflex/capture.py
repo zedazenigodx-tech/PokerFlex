@@ -894,6 +894,7 @@ def get_poker_rois(width: int, height: int, client: str = "clubgg") -> dict:
     pot_f = d["pot"]
     action_bar_f = d["action_bar"]
     hud_f = d["hud"]
+    bet_f = d.get("bet") or action_bar_f  # ensure 'bet' text region (falls to action_bar; calib can override; follows pot/action_bar pattern exactly)
 
     fracs = CALIBRATED_ROI_FRACTIONS or {}
     if fracs:
@@ -909,6 +910,8 @@ def get_poker_rois(width: int, height: int, client: str = "clubgg") -> dict:
             pot_f = tuple(fracs["pot"])
         if "action_bar" in fracs and len(fracs["action_bar"]) == 4:
             action_bar_f = tuple(fracs["action_bar"])
+        if "bet" in fracs and len(fracs["bet"]) == 4:
+            bet_f = tuple(fracs["bet"])
         if "hud" in fracs and len(fracs["hud"]) == 4:
             hud_f = tuple(fracs["hud"])
 
@@ -919,6 +922,7 @@ def get_poker_rois(width: int, height: int, client: str = "clubgg") -> dict:
     pot = (int(w * pot_f[0]), int(h * pot_f[1]), int(w * pot_f[2]), int(h * pot_f[3]))
     action_bar = (int(w * action_bar_f[0]), int(h * action_bar_f[1]), int(w * action_bar_f[2]), int(h * action_bar_f[3]))
     hud = (int(w * hud_f[0]), int(h * hud_f[1]), int(w * hud_f[2]), int(h * hud_f[3]))
+    bet = (int(w * bet_f[0]), int(h * bet_f[1]), int(w * bet_f[2]), int(h * bet_f[3]))  # 'bet'/'action' text region for bet size / facing OCR (smallest add; reuses action_bar frac if no specific)
 
     rois = {
         "hero": hero,
@@ -926,13 +930,14 @@ def get_poker_rois(width: int, height: int, client: str = "clubgg") -> dict:
         "hero_stack": hero_stack,
         "pot": pot,
         "action_bar": action_bar,
+        "bet": bet,
         "hud": hud,
         "full": (0, 0, w, h),
     }
     # If config had absolute bboxes (legacy/old profiles), scale them from base to current (overrides fractions if present)
     if VISION_CONFIG and isinstance(VISION_CONFIG.get("rois"), dict) and CALIBRATED_BASE_RES:
         src_w, src_h = CALIBRATED_BASE_RES
-        for k in ("hero", "board", "hero_stack", "pot", "action_bar", "hud"):
+        for k in ("hero", "board", "hero_stack", "pot", "action_bar", "bet", "hud"):
             if k in VISION_CONFIG["rois"]:
                 try:
                     absb = VISION_CONFIG["rois"][k]
@@ -966,6 +971,7 @@ def suggest_auto_rois(image_path: str) -> dict:
         "hero_stack": [0.36, 0.905, 0.64, 0.985],
         "pot": [0.32, 0.26, 0.68, 0.34],
         "action_bar": [0.28, 0.82, 0.72, 0.90],
+        "bet": [0.28, 0.82, 0.72, 0.90],
         "hud": [0.08, 0.22, 0.92, 0.52],
     }
     if not HAS_CV2 or not image_path or not os.path.exists(image_path):
@@ -1734,7 +1740,7 @@ def _recognize_card_from_crop(card_pil, card_cv=None, templates: dict | None = N
 def attempt_vision_parse(image_path: str, silent: bool = False, sensitivity: str | None = None, min_conf: float = 0.0, partial_min_conf: float = 0.0, debug: bool | None = None, preprocess: str | None = None, history_len: int | None = None, client: str = None) -> dict:
     """Client-aware (clubgg|coinpoker default clubgg) vision parse: image -> ROIs (get_poker_rois(client) or get_clubgg_rois wrapper) -> card rect detection (cv) ->
     per-card recognition (tesseract OCR on crops preferred, template fallback + HARDENED voting) ->
-    hand (bottom 2), board (center 0-5), position (text labels) + pot, facing_bet, street, action_hint, villain_count.
+    hand (bottom 2), board (center 0-5), position (text labels) + pot, facing_bet, street, action_hint, villain_count, bet_to_call, facing_action (from bet ROI + improved extract).
     client= passed to get_poker_rois + load_vision_config (selects per-client profile) + attached to result.
 
     Returns rich dict always safe for live state updates:
@@ -1847,7 +1853,7 @@ def attempt_vision_parse(image_path: str, silent: bool = False, sensitivity: str
                 roi_ocrs["hero_stack"] = st
             # NEW rois (HARDENED: more PSM + oem for pot/bet/action HUD text robustness on varied ClubGG UI skins)
             extra_psms = ["--psm 6 --oem 3", "--psm 7 --oem 3", "--psm 11 --oem 1", "--psm 4 --oem 3"]
-            for k in ("pot", "action_bar", "hud"):
+            for k in ("pot", "action_bar", "bet", "hud"):
                 r = rois.get(k)
                 if r:
                     try:
@@ -1954,8 +1960,8 @@ def attempt_vision_parse(image_path: str, silent: bool = False, sensitivity: str
             pot_val = extract_pot_size(full_ocr, roi_ocr_text)
             if pot_val:
                 result["pot"] = pot_val
-            bet_info = extract_bet_info(full_ocr, roi_ocr_text, roi_ocrs.get("action_bar", ""))
-            for kk in ("facing_bet", "call_amount", "action_hint", "bet_to"):
+            bet_info = extract_bet_info(full_ocr, roi_ocr_text, roi_ocrs.get("bet") or roi_ocrs.get("action_bar", ""))
+            for kk in ("facing_bet", "call_amount", "action_hint", "bet_to", "bet_to_call"):
                 if bet_info.get(kk):
                     result[kk] = bet_info[kk]
             street_act = detect_street_and_action(pil_img, full_ocr, roi_ocrs)
@@ -2127,6 +2133,29 @@ def attempt_vision_parse(image_path: str, silent: bool = False, sensitivity: str
     result["detected_card_rects"] = det
     # Mark partial reads explicitly (enables runner to decide update vs full-hand req)
     result["partial"] = (len(hand_cards) < 2 or len(board_cards) < 3) and bool(hand or board)
+
+    # When parsing board/hand, also attempt to infer current facing_action and bet_to_call from the image text (bet amount facing hero).
+    # Uses same extract as pot (gated VISION_STREET_ACTION; additive only if good text; graceful no-overwrite if absent/low).
+    # Follows exact current patterns for pot/bet_to_call/facing_action/street in capture + _robust_apply.
+    if VISION_STREET_ACTION:
+        try:
+            bsrc = (roi_ocrs or {}).get("bet") or (roi_ocrs or {}).get("action_bar", "") or ""
+            bet_info3 = extract_bet_info(full_ocr or "", roi_ocr_text or "", bsrc)
+            if bet_info3.get("bet_to_call") and not result.get("bet_to_call"):
+                result["bet_to_call"] = bet_info3.get("bet_to_call")
+            ah = bet_info3.get("action_hint") or result.get("action_hint")
+            if ah and not result.get("facing_action"):
+                a = str(ah).lower()
+                if "raise" in a:
+                    result["facing_action"] = "raise"
+                elif "bet" in a or "allin" in a:
+                    result["facing_action"] = "bet"
+                elif "check" in a:
+                    result["facing_action"] = "check"
+                else:
+                    result["facing_action"] = str(ah)[:20]
+        except Exception:
+            pass
 
     # Street progression detection (in capture for direct feed to parsed state):
     # Use board length + action hints + pot changes to infer street even if vision misses one card or label.
@@ -2397,7 +2426,7 @@ def extract_pot_size(ocr_text: str, roi_ocr: str = "") -> str | None:
         return None
     def _parse_amt(txt: str) -> float | None:
         if not txt: return None
-        t = re.sub(r'(?i)\s*bb\b', '', txt)  # support "12.5bb" or "4.5 BB"
+        t = re.sub(r'(?i)\b(?:bb|BB)\s*', '', txt)  # improved for bet/pot: '5.5','12','$4.00','bb 3.2' etc (pattern as in extract_bet_info)
         t = re.sub(r'[\$,]', '', t)
         m = re.search(r'\b(\d{1,4}(?:\.\d{1,2})?)\b', t)
         if m:
@@ -2430,8 +2459,7 @@ def extract_bet_info(ocr_text: str, roi_ocr: str = "", action_roi_ocr: str = "")
     Returns dict with 'facing_bet', 'action_hint', 'call_amount', 'bet_to', 'bet_to_call' etc (strings or None).
     Greatly improves live facing spots (postflop especially) without manual 'set facing'.
     Handles common ClubGG action bar phrasing reliably.
-    HARDENED (this task): more UI styles "Pot: 12.50" handled in pot fn, "Call 4.5", "Raise To 12", "$ amounts",
-    "4.5bb", "Call 4.5 (pot)", better regex + _parse_amt (bb strip + tolerant); more patterns for "Raise To", "to call".
+    Improved regex for bet amts e.g. '5.5','12','$4.00','bb 3.2'; detects facing_bet vs facing_raise vs check (w/ 'bet' ROI).
     """
     src = " ".join([ocr_text or "", roi_ocr or "", action_roi_ocr or ""])
     res = {"facing_bet": None, "call_amount": None, "action_hint": None, "bet_to": None, "bet_to_call": None}
@@ -2440,7 +2468,7 @@ def extract_bet_info(ocr_text: str, roi_ocr: str = "", action_roi_ocr: str = "")
     u = src.upper()
     def _parse_amt(txt: str) -> float | None:
         if not txt: return None
-        t = re.sub(r'(?i)\s*bb\b', '', txt)  # bb only support e.g. 4.5bb , 12 BB
+        t = re.sub(r'(?i)\b(?:bb|BB)\s*', '', txt)  # improved: bb 3.2, BB12, 4.5bb etc (before/after)
         t = re.sub(r'[\$,]', '', t).strip()
         m = re.search(r'\b(\d{1,4}(?:\.\d{1,2})?)\b', t)
         if m:
@@ -2505,10 +2533,12 @@ def extract_bet_info(ocr_text: str, roi_ocr: str = "", action_roi_ocr: str = "")
                     break
             if res["facing_bet"]:
                 break
-    # action hints (improved for bet phrasing + allin)
+    # action hints (improved for bet phrasing + allin; detect facing_bet vs facing_raise vs check per task)
     if "CALL" in u or "to call" in u.lower():
         res["action_hint"] = "facing_call"
-    elif "BET" in u or "raise" in u.lower() or re.search(r"(?i)\bbet\b", src):
+    elif re.search(r"(?i)\braise\b", src) or "RAISE" in u:
+        res["action_hint"] = "facing_raise"
+    elif "BET" in u or re.search(r"(?i)\bbet\b", src):
         res["action_hint"] = "facing_bet"
     elif "CHECK" in u:
         res["action_hint"] = "check_option"
@@ -2548,14 +2578,18 @@ def detect_street_and_action(pil_img, full_ocr: str, rois_ocr: dict | None = Non
     elif "RIVER" in u:
         hints["street"] = "river"
     # action from buttons / text
-    bet_info = extract_bet_info(ocr, "", (rois_ocr or {}).get("action_bar", ""))
+    bet_info = extract_bet_info(ocr, "", (rois_ocr or {}).get("bet") or (rois_ocr or {}).get("action_bar", ""))
     if bet_info.get("action_hint"):
         hints["action_hint"] = bet_info["action_hint"]
         hints["facing_bet"] = bet_info.get("facing_bet")
-    # if no explicit, look for check/bet/fold keywords
+    # if no explicit, look for check/bet/fold keywords (facing bet vs raise etc)
     if not hints.get("action_hint"):
         if "CHECK" in u:
             hints["action_hint"] = "check"
+        elif "RAISE" in u or "raise" in ocr.lower():
+            hints["action_hint"] = "facing_raise"
+        elif "BET" in u or re.search(r"(?i)\bbet\b", ocr):
+            hints["action_hint"] = "facing_bet"
         elif "FOLD" in u and "CALL" not in u:
             hints["action_hint"] = "facing_raise"
     return hints
@@ -2780,6 +2814,7 @@ def simulate_table_state(step: int = 0, scenario: str = "demo", client: str = No
             state["confidence"] = 0.29
             partial_inj = True
         # inject pot/bet variants that exercise the hardened extractors (even tho sim bypasses ocr, for direct state variety + future ocr tests)
+        # note: bet examples for improved _extract (regex): '5.5', '12', '$4.00', 'bb 3.2' etc (tested via --simulate-vision)
         try:
             state["pot"] = ["12.5", "Pot: 8.0", "15", "4.5bb", "22.50"][step % 5]
             state["facing_bet"] = ["4.5", "Call 3.25", "Raise To 12", "6.0", "$2.5"][step % 5]

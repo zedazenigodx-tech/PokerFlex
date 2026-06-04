@@ -96,7 +96,7 @@ def main():
     # Friendly one-line banner when invoked directly (before full runner output).
     # Helps confirm A1 for users with zero engineering effort (A1 is default).
     # Safe print (some consoles / powershell default encodings choke on emoji).
-    if not any(a in ("--help", "-h", "--background", "-b", "--once", "--tray", "--self-test", "--bench", "--calibrate", "calibrate") for a in sys.argv[1:]):
+    if not any(a in ("--help", "-h", "--background", "-b", "--once", "--tray", "--self-test", "--bench", "--calibrate", "calibrate", "--leaks", "leaks", "leak", "review") for a in sys.argv[1:]):
         try:
             sys.stdout.reconfigure(encoding="utf-8")
         except Exception:
@@ -132,6 +132,18 @@ def main():
         except Exception as ex:
             print(f"[calib] direct launch failed: {ex}")
             # fallthrough to run_brain which has robust fallback handling
+
+    # Early subcommand support for leaks/review (lightweight; pattern like calibrate).
+    # Allows `python -m pokerflex leaks` (or leak/review) to run directly without full bg setup.
+    # run_brain.main also handles --leaks + argv for full compat (interactive + flag).
+    if argv_tail and argv_tail[0].lower() in ("leaks", "leak", "review"):
+        try:
+            from .run_brain import do_leak_review as _do_leak
+            _do_leak()
+            return
+        except Exception as ex:
+            print(f"[leaks] direct subcommand launch failed: {ex}")
+            # fallthrough to run_brain handler
 
     # Delegate entirely to the full-featured A1 runner.
     # run_brain.main() handles argparse, preload of new brain, hotkeys, watcher, interactive/bg.

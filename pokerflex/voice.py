@@ -6,6 +6,7 @@ Usage from inside the agent:
     text = capture_voice()   # blocks until user holds Space, speaks, releases
 
 This is designed so you can trigger it with /voice and it feels native.
+Wired in run_brain: 'voice'/'v'/'speak' in interactive (and tray/hotkey ctrl+alt+v) calls capture then feeds (normalized) text to command parser for natural cmds.
 """
 
 import time

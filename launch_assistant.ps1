@@ -26,7 +26,7 @@
         powershell -ExecutionPolicy Bypass -File .\launch_assistant.ps1
 
   For real tables (after first run): run the calibration wizard once (~2 min) then relaunch.
-  For demo (no table, no tesseract, no OCR): just double-click / run — it uses --simulate-vision.
+  For demo (no table, no tesseract, no OCR): just double-click / run - it uses --simulate-vision.
 
   Stops cleanly on Ctrl+C or tray Quit. State + notes are persisted to the json files (watcher reloads live edits).
 
@@ -69,7 +69,7 @@ Write-Host "================================================" -ForegroundColor C
 Write-Host " PokerFlex A1 - PowerShell Launcher (zero-touch)" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Continuing in PowerShell on Windows (local, no git)." -ForegroundColor DarkGray
+Write-Host 'Continuing in PowerShell on Windows (local, no git).' -ForegroundColor DarkGray
 Write-Host "Delegates to launch_assistant.py for the canonical experience + banners."
 Write-Host ""
 Write-Host "Quick tips for PS users:" -ForegroundColor Yellow
