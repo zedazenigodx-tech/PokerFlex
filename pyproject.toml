@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pokerflex"
+version = "1.0.0"
+description = "PokerFlex A1 GTO real-time assistant (brain with explo notes + ICM)"
+readme = "readme.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+  {name = "PokerFlex contributors"}
+]
+dependencies = [
+  # populated from requirements.txt at setup time via setup.py (for full compat)
+]
+
+[project.scripts]
+pokerflex = "pokerflex.__main__:main"
+
+[tool.setuptools]
+packages = ["pokerflex"]
+
+[tool.setuptools.package-data]
+pokerflex = ["equity_matrix.json"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[project.optional-dependencies]
+dev = [
+  "build",
+  "pyinstaller",
+]
+tray = [
+  "pystray>=0.19.4",
+]
+# Note: pystray is optional (for system tray UX in background mode).
+# Install with: pip install "pokerflex[tray]" or pip install pystray
+# The app is fully functional without it (graceful fallback; tray menu disabled).
+# PyInstaller packaging can include it if present in build env (see build_exe.py).

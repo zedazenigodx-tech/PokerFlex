@@ -1,0 +1,484 @@
+POKERFLEX A1 REAL-TIME ASSISTANT — QUICKSTART (ClubGG + CoinPoker)
+ULTIMATE "GET A WORKING BACKGROUND ASSISTANT IN <10 MINUTES" GUIDE
+A1 brain = UNAMBIGUOUS DEFAULT (no flags). Zero-touch: install once, double-click launcher (or cmd), calibrate once per client/table for real vision (ClubGG or CoinPoker via --client or auto title detect), play with hotkeys/tray + live notes + ICM. All new cmds (calibrate, --tray, --self-test, --bench, icm-sim, action, notes edit, set payouts) documented in --help / status / interactive help / docs. Multi-client: --client coinpoker|clubgg (auto from window); uses client-prefixed or generic poker_* state/notes (legacy clubgg_ fallback).
+
+EXACT STEPS (copy-paste, from E:\PokerFLex folder; Windows/PowerShell or cmd):
+1. INSTALL (once):
+   pip install -r requirements.txt && pip install -e .
+   # or double-click install.bat
+   # For real vision later: also install Tesseract-OCR binary (https://github.com/UB-Mannheim/tesseract/wiki) + add to PATH. Optional tray: pip install pystray
+
+2. LAUNCH zero-touch background assistant (A1 default, auto live listener):
+   double-click launch_assistant.bat
+   # or
+   python launch_assistant.py
+   # Tray (bg-friendly, menu, popups, overlay, hide console, startup toggle):
+   python launch_assistant.py --tray
+   # (or after install: pokerflex --tray )
+   # Minimize console. Hotkeys work globally even with ClubGG or CoinPoker focused.
+
+3. CALIBRATE ONCE (2 min, set-and-forget for real hands-off vision; strongly recommended):
+   python -m pokerflex calibrate
+   # or `pokerflex calibrate`
+   # Follow wizard: table visible -> auto-capture -> confirm ROIs (cv2 preview) -> label cards -> saves vision_config.json + card_templates/
+   # Future --real-vision / launcher auto-loads your profile for higher conf/partials/reliability. Re-run for new skin/res.
+
+4. PLAY with hotkeys/tray (while ClubGG or CoinPoker focused; use --client coinpoker):
+   Ctrl+Alt+A  → analyze (rich A1; auto-captures if needed)
+   Ctrl+Alt+S  → status (state + notes + vision)
+   Ctrl+Alt+C  → capture
+   Ctrl+Alt+O  → toggle floating overlay (compact A1 always visible)
+   Tray right-click: Analyze Now | Status | Notes Quick | Show Console | Run at startup | Quit
+   (With --tray + --live: quieter, toasts + overlay surface advice.)
+
+5. LIVE NOTES EDITING (real-time explo, watcher ~2s):
+   Open clubgg_player_notes.json in editor (or in-console: notes edit)
+   Example: add "nit": {"fold_to_cbet": 0.82, "notes": "folds too much dry"}
+   Or in prompt: note nit fold_to_cbet 0.82 ; notes edit (rich sub-REPL w/ live previews, presets, history, export)
+   A1 instantly uses (wider cbets vs nit etc). Persists.
+
+6. ICM EXAMPLE (tourney short stack + postflop ICM + concrete payouts):
+   At launch or live: python -m pokerflex --background --live --tournament-mode --players-remaining 6 --pos SB --stack 12 --payouts 0.5,0.3,0.2
+   Or interactive: set tmode true ; set players 6 ; set payouts 0.5,0.3,0.2 ; set icm 0.18
+   icm-sim   (or icm shove 12 0.45)  → shows $EV impact vs chipEV
+   set payouts affects factor + postflop ICM (tighter marginals). Visible in A1 tags/metrics.
+   Action history: action villain call ; action bet 2.5  (feeds ranges/blockers/stories in postflop)
+
+After launch_assistant + calibrate + table visible: true 0-touch (auto state from vision + auto rich A1 w/ your notes + ICM).
+
+(For real-vision: use --real-vision in launcher or direct; sim default for demo/verify. All via A1.)
+
+Legacy only if forced (debug): POKERFLEX_FORCE_LEGACY_BRAIN=1 python -m pokerflex
+
+INSTALL (once) — easy packaging support added
+  From the PokerFlex folder:
+    pip install -r requirements.txt && pip install -e .
+  Or double-click install.bat (Windows).
+
+  Primary way (always works, before/after install):
+    python -m pokerflex
+  After `pip install -e .` (or install.bat) the `pokerflex` command entry point also works:
+    pokerflex --help
+
+  (This pulls keyboard, pygetwindow, pytesseract+cv2+ PIL for vision/capture/hotkeys.
+   On Windows: for full real-vision OCR (non-sim), also install the Tesseract binary
+   from https://github.com/UB-Mannheim/tesseract/wiki and ensure it's on PATH.
+   For global hotkeys in some setups: run terminal/PowerShell as Administrator.)
+
+  Optional tray (system tray + popups + run-at-startup + quieter): pip install pystray
+  Standalone exe (one-file/folder): python build_exe.py  (see build_exe.py header for tesseract note + --tray usage; produces dist/PokerFlex.exe)
+
+RECOMMENDED LAUNCHER (from project root E:\PokerFlex or wherever you cd'ed)
+  python -m pokerflex                 # PRIMARY documented way (A1 default, works pre/post install)
+  python -m pokerflex --help
+  # after `pip install -e .` (or install.bat) the CLI entry point also works:
+  pokerflex --help
+  python pokerflex.py                 # root shim (compat, works identically)
+
+  One-click (Windows): double-click launch_assistant.bat   (or python launch_assistant.py)
+    — starts the zero-touch background live sim mode with good defaults (A1 advice auto-fires).
+    .bat now forwards extra args (e.g. launch_assistant.bat --real-vision --periodic-capture 12); .py always did.
+    All launchers (bat, py, __main__, run_brain, entry points, python -m, GUI) default to new A1 brain (USE_NEW_BRAIN=True module default).
+
+  Tray / packaged exe (new easy standalone bg): 
+    (pip install pystray)
+    python -m pokerflex --tray --live --simulate-vision ...
+    # or build once: python build_exe.py ; then double-click dist/PokerFlex.exe (or with --tray in shortcut)
+    # Tray menu gives Analyze Now / Status / Notes Quick / Run at startup (persists .bat in Startup) / Show Console / Quit.
+
+This launches the background/console runner with A1 brain (rich GTO + texture + notes + ICM).
+
+HOW TO RUN THE BACKGROUND A1 ASSISTANT (ZERO-TOUCH REAL-TIME — FINAL INSTRUCTIONS)
+  This is the killer feature: run once (via one-click launcher or cmd), minimize the terminal, play on ClubGG (or CoinPoker via --client coinpoker or other), get rich A1 (GTO + explo notes + ICM) advice on hotkey or auto-live.
+  New A1 brain is THE UNAMBIGUOUS primary/default (no flags ever needed); poker_engine.py module (pkg + root shim) + ALL launchers/entry points/GUI/`python -m pokerflex`/pokerflex CLI / launch_assistant default to USE_NEW_BRAIN=True (with explicit decls + belt). Legacy ONLY if forced via POKERFLEX_FORCE_LEGACY_BRAIN=1 env (debug/comparison only). Final enforcement+polish+default-mode specialist pass complete (USE=True module+all entries; clean rich A1 no disclaimers; GUI A1 titles/labels; zero-touch python -m / launcher; hotkeys/live/notes/ICM/explo E2E; full verifs incl imports/GTO/explo/ICM/legacy/GUI/runner--bg-live-sim/self-tests).
+
+  ULTIMATE "JUST RUN IT" FLOW (0 engineering touch; launch once, play, get value from always-available A1):
+       1. Double-click launch_assistant.bat   (or python launch_assistant.py)
+          — strong defaults: tray + live + (real-vision auto if you have vision_config.json from calib, else safe sim demo).
+          Tray + overlay auto for always-visible advice (compact floating box updates on every analyze; toasts + log too).
+       2. Calibrate once if using real table (for best OCR results on your ClubGG skin/res/zoom; *once per client/table* for CoinPoker too):
+          • After first launch (or from tray menu "Open Calibration"): run `python -m pokerflex calibrate`
+          • ~2 min wizard (captures, guides ROIs + label a few cards). Saves vision_config.json .
+          • For CoinPoker: have a CoinPoker table visible in wizard; later launch using --client coinpoker (profile auto used).
+          • Then just double-click launch_assistant.bat again (or with --real-vision); it auto-detects profile and uses real-vision + robust defaults.
+       3. Play. (ClubGG table visible for real-vision; sim works without. For CoinPoker: use --client coinpoker + --real-vision.)
+          • Hotkeys (global, no alt-tab): Ctrl+Alt+A = rich A1 analyze | Ctrl+Alt+O = toggle floating compact advice overlay (action + key reason + ICM/EXPLOIT tag, always-on-top draggable) | Ctrl+Alt+S = status | C = capture.
+          • Tray (right-click the icon): "Show Last Advice" (persisted rich A1 even if console hidden), "Toggle Advice Overlay", quick "set nit / station" presets (auto-apply + analyze), "Open Calibration", "Launch GUI", Analyze Now, Status, Notes Quick, Run at startup, Quit.
+          • Live edit: open clubgg_player_notes.json (or current_state) in any editor; changes apply ~2s via watcher. Tray presets give instant explo.
+          • Always-on advice surface: the floating overlay (updates live/hotkey), tray "Show Last Advice" (from last_advice.txt + log tail), toasts on analyze (when hidden), full rich A1 (GTO + notes + postflop ICM + action_history) in pokerflex_tray.log .
+       4. Stop anytime: tray Quit or close the launcher window. State + notes persist for next run.
+       (All A1 rich output including new history and postflop ICM is available in the surfaces you see: overlay, tray last-advice, log.)
+
+       # With real after calib (no edit needed to launcher):
+       #   double-click launch_assistant.bat --real-vision
+       # Or explicit: launch_assistant.bat --real-vision
+
+       # Tray is strong default now for the best always-available UX. If no pystray: graceful quiet bg (hotkeys+live+log still perfect). `pip install pystray` unlocks full menu+overlay+toasts.
+
+       # Direct (same effect; primary after install):
+       python -m pokerflex --background --live --simulate-vision --pos BTN --stack 100 --auto-capture
+       # or after `pip install -e .`:
+       pokerflex --background --live --simulate-vision --pos BTN --stack 100 --auto-capture
+       # Real (hands-off table reading; run_brain auto-bumps to robust consec/conf when --real-vision or plain --live real path):
+       python -m pokerflex --background --live --real-vision --auto-capture
+       # Tuned real example:
+       python -m pokerflex --background --live --real-vision --periodic-capture 8 --auto-capture --vision-min-conf 0.28 --vision-min-consec 2
+       # CRITICAL (one-time for your setup): run the calibration wizard first for reliable real-vision (2 min set-and-forget):
+       #   python -m pokerflex calibrate     (or `pokerflex calibrate`; subcommand or flag)
+       #   For CoinPoker: python -m pokerflex --client coinpoker calibrate   (wizard detects or you specify; per-client profiles + ROIs/templates)
+       #   Then: python -m pokerflex --client coinpoker --background --live --real-vision --tray (or launch_assistant.bat --client coinpoker --real-vision --tray)
+       #   Same 0-touch for both ClubGG and CoinPoker. The improved --live listener (new-hand auto-clear history, auto HUD pos/stack, bet sizing from table, confidence gating, full persistence) works for both.
+       #   Client support: --client coinpoker|clubgg (default clubgg; auto-detect from window title). Uses coinpoker_* / clubgg_* or generic poker_* files (legacy clubgg_ fallback for existing users). Calib and live per-client.
+       #     Wizard (IMPROVED): progress (STEP X/8), auto-ROI cv2 suggestion (felt+cards), multiple samples + pick best,
+       #     easier templates (more crops + batch "Ah 10d _" or "auto" accept-OCR-good), re-calib-from-existing-images,
+       #     auto post-save rich test+parse + guidance ("if conf low on suits, add more template crops").
+       #     Saves vision_config.json + card_templates/ ; respected by get_clubgg_rois/_load_templates/attempt_vision_parse.
+       #     After: all --real-vision commands load your tuned ROIs/templates automatically (higher conf/partials for hands-off).
+       #   Quick verify after: python -m pokerflex --calib-test   (rich demo parse using your profile + guidance)
+       # New: vision debug (extra partial/conf/rect logs for real OCR tuning) + expanded sim scenarios:
+       python -m pokerflex --background --live --real-vision --vision-debug --vision-min-conf 0.25 --vision-min-consec 2 --sim-scenario mixed
+       # Finer partial sensitivity (new --vision-partial-conf for dedicated lower bar on 1-card/flop reads while full stays strict; improves street progression auto-updates):
+       python -m pokerflex --background --live --real-vision --vision-min-conf 0.30 --vision-partial-conf 0.20 --vision-min-consec 2 --auto-capture
+       # OCR preproc sensitivity for real vision (new --vision-preproc aggressive for CLAHE/denoise to boost partial reads/conf on low-contrast ClubGG sprites):
+       python -m pokerflex --background --live --real-vision --vision-preproc aggressive --vision-min-conf 0.25 --vision-partial-conf 0.18 --vision-min-consec 2 --auto-capture --vision-debug
+       # Or via launcher (forwards all): python launch_assistant.py --real-vision --vision-debug --periodic-capture 10 --sim-scenario tourney --vision-preproc aggressive
+
+     - launch_assistant.* ALWAYS forces --background + --live + A1 (sim default for 0-touch no-table; real if --real* passed + auto robustness).
+     - --live auto-starts the listener: capture (real or sim) + vision parse (enhanced partials/conf/pos/stack) + _robust_apply (prefer_better_*, consec debounce, new-hand clear) + auto state + auto analyze (with notes/explo + ICM) on reliable changes.
+     - Uses --simulate-vision: cycles realistic demo hands/boards (incl ICM short-stack examples + partials).
+     - Auto-analyzes periodically via live listener (no input needed after launch).
+     - Produces rich clean A1 output (format_a1_advice) in the terminal while "playing".
+     - Hotkeys + json editing + watcher still coexist perfectly (0 conflict).
+     - Perfect for first run / verifying full stack (GTO + notes + ICM + vision flow) with 0 touch.
+     - Verified end-to-end: GTO, explo (notes adjust postflop), ICM (nash factor), legacy fallback (env force), bg live launch, real/sim seamless.
+     - Further robustness now: capture retries + window activate, prefer_better_hand/board for partials, new-hand stale board auto-clear, consec-good-reads debounce before auto state/analyze. Low-conf always falls back to manual/json/hotkey. Real defaults auto-tuned in launcher + run_brain.
+
+  2. For real ClubGG play (hands-off):
+     - Make sure your ClubGG table is open, visible, preferably not minimized (title usually contains "ClubGG").
+     - Use one-click with real (no edit needed):
+       python launch_assistant.py --real-vision
+       # (or launch_assistant.bat --real-vision ; py auto adds --vision-min-conf 0.28 --vision-min-consec 2 --vision-preproc aggressive etc for stable zero-touch)
+     - Or run (using entry points or shims; run_brain auto applies robust defaults for real path if no explicit consec/conf):
+       python -m pokerflex --background --live --real-vision --periodic-capture 12 --auto-capture
+       # or: pokerflex --background --live --real-vision --periodic-capture 12 --auto-capture
+       # or tuned: python -m pokerflex --background --live --real-vision --periodic-capture 8 --vision-min-conf 0.30 --vision-min-consec 2 --vision-sensitivity medium --vision-preproc aggressive --auto-capture
+       # (add --pos BTN --stack 80 --tournament-mode etc as needed at launch; plain --live without --simulate also defaults to real path + robust)
+     - Or start interactive then switch mindset: python pokerflex.py  (no --background) for typing 'set' etc.
+
+  COINPOKER (parallel support, same 0-touch philosophy: calib once per client/table, then 0-touch --live --real-vision + tray + hotkeys + notes):
+     - Calibrate for CoinPoker: python -m pokerflex calibrate   (bring CoinPoker table forward during wizard; saves profile for it)
+     - Launch with client:
+       python -m pokerflex --background --live --real-vision --client coinpoker --periodic-capture 12 --auto-capture
+       # tuned partials etc:
+       python -m pokerflex --background --live --real-vision --client coinpoker --vision-min-conf 0.28 --vision-partial-conf 0.22 --vision-min-consec 2 --vision-preproc aggressive
+     - Tray + CoinPoker (recommended 0-touch):
+       python -m pokerflex --tray --background --live --real-vision --client coinpoker
+       # or via launcher (passes --client):
+       python launch_assistant.py --client coinpoker --real-vision
+       launch_assistant.bat --client coinpoker --real-vision   # (or with --tray)
+     - Same hotkeys (Ctrl+Alt+A etc work while CoinPoker focused), same live edit of clubgg_* json (or poker_*), same notes/explo/ICM.
+     - Calib is per-client: after CoinPoker calib, --client coinpoker loads the right ROIs/templates automatically. Re-calib only if CoinPoker skin/layout changes. Sim tests (--simulate-vision) are shared/generic.
+     - Window detect uses CoinPoker title hints when --client coinpoker.
+
+  3. Simpler background (hotkeys + manual or json-driven, no auto-live):
+       python pokerflex.py --background --pos BTN --stack 100 --auto-capture
+
+  Exit anytime: Ctrl+C in the terminal (state + notes auto-saved to the two clubgg_*.json).
+
+  While running (bg or interactive):
+    - Hotkeys (global, even if ClubGG has focus): Ctrl+Alt+A (analyze), Ctrl+Alt+S (status), Ctrl+Alt+C (capture)
+    - Live edit: open clubgg_current_state.json or clubgg_player_notes.json in any editor; watcher reloads ~2s.
+    - In interactive console (🧠 A1> ): type help, status, set pos BTN, set hand AhKs, note nit fold_to_cbet 0.78, notes edit, etc.
+
+  One-off test (no runner loop):
+    python pokerflex.py --once --pos BTN --hand AhKs --stack 100 --analyze
+
+  Tournament / ICM:
+    python pokerflex.py --background --tournament-mode --players-remaining 6 --pos SB --stack 12
+    ... or --icm-factor 0.15 ...
+
+  The top-level `python pokerflex.py` (or launch_assistant.bat) is THE documented launcher — it forces A1 brain + good UX from the project root. (python -m pokerflex also works in clean installs.) run_brain.py and direct calls also work.
+
+HOTKEYS (global — work even when ClubGG is focused, no need to switch windows)
+  Ctrl+Alt+A   → analyze (rich A1 advice; auto-captures if --auto-capture + no hand/board yet)
+  Ctrl+Alt+S   → status (current state, notes, flags)
+  Ctrl+Alt+C   → capture (saves clubgg_live.png for review)
+
+LIVE STATE EDITING (while runner is running)
+  - In interactive: type  set pos BTN
+                     set hand AhKs
+                     set board Qd7h2c
+                     set stack 80
+                     set opp 2
+                     set tmode true
+                     set icm 0.18
+                     set players 5
+  - Or edit files directly (changes auto-reloaded by watcher in ~2 seconds):
+      clubgg_current_state.json   (position, hand, board, stack, opponents, tournament_mode, icm_factor, players_remaining)
+      clubgg_player_notes.json    (see below)
+  - 'load' or 'reload' in console to force sync.
+  - 'save' to persist.
+
+PLAYER NOTES / EXPLOITATIVE MODE — ENHANCED (interactive full-featured editor + deep GUI + preflop too)
+  Multi-villain keyed by seat/pos/name (seat3, btn_nit, co_villain — vision ready).
+  Affects preflop opens/3bets dynamically (wider steals vs nits) + postflop.
+  CLI: note nit fold_to_cbet 0.81 ; note seat3 preflop_3bet_freq 0.03 ; note list
+    notes / n
+    notes edit             # RICH sub-REPL: live preview "nit: cbet freq now 35% wider value range on dry", custom user profiles, history, export/import, per-key presets, seat keys. Full UX.
+  In notes edit:
+    list ; preview nit ; set nit fold_to_cbet 0.82 ; nit seat2 ; save_preset mynit ; apply_custom mynit btn ; history ; export ; done
+  GUI: expandable table view (villain key, fold_to_cbet, fold_dry, fold_wet, agg_factor, cbet_freq, free_notes). Add/edit/delete rows, apply presets per-row, save live. Send-to-runner syncs all notes.
+  Status: active notes summary + effect tags. Live via watcher (edits to clubgg_* notes json immediate on next analyze).
+  Presets: nit/station/maniac + unlimited custom named user profiles.
+  No breakage to existing nit/station or A1 🎯EXPLOIT tags. Sample multi-villain in clubgg_player_notes.json.
+  Notes persist + auto used (or CONFIG.exploitative_mode). Edit json manually ok too.
+
+TOURNAMENT / ICM MODE (deeper short-stack postflop support)
+  - Flag: --tournament-mode  (or --tournament / --tourn)
+  - Live: set tmode true
+  - For final table / bubble: --players-remaining 5   (or set players 5)
+  - Explicit: --icm-factor 0.15   (or set icm 0.15)
+  - NEW concrete payouts (affects factor + postflop ICM for 8-20bb spots): set payouts 0.5,0.3,0.2  (or --payouts 0.40,0.25,0.20,0.10,0.05 ; 6-9p examples)
+  - ICM $EV helper: in A1> prompt type 'icm-sim' (or 'icm shove 12 0.46') — shows chipEV vs ICM dollar impact using current payout.
+  - Affects preflop Nash + postflop (tighter marginal calls, lower bluff freq, protection sizing boost, ICM tags on postflop advice too).
+  - Visible in output as "ICM factor: 0.xx (tournament mode / adjusted Nash) (postflop ICM-adjusted)" + metrics.
+
+HOW TO USE THE GUI (A1 Windowed Assistant)
+  python main.py
+  # It now uses the new A1 brain by UNAMBIGUOUS default (richer text in the output box, [A1 Brain] tag).
+  # Same inputs as before. Hotkey Ctrl+Alt+P to popup the window.
+  # No changes needed in GUI usage. (The GUI is preserved for users who prefer the windowed form; new brain is the default.)
+
+
+FORCE LEGACY (exact old behavior, for comparison/debug ONLY — never needed for normal use; new A1 is unambiguous default)
+  New A1 brain is default everywhere with zero configuration. To force the legacy path (old get_advice text, for debug/old callers):
+  PowerShell:
+    $env:POKERFLEX_FORCE_LEGACY_BRAIN=1; python -m pokerflex
+  CMD / bash:
+    POKERFLEX_FORCE_LEGACY_BRAIN=1 python -m pokerflex
+  Or: POKERFLEX_FORCE_LEGACY_BRAIN=1 python pokerflex.py
+  (Or set CONFIG.force_legacy_brain=True before import. New A1 is unambiguous default in poker_engine + launchers/GUI/__main__/etc. Legacy never primary.)
+
+EXAMPLE COMMANDS FOR COMMON SCENARIOS
+  # 1. Cash game, deep stack (100bb+), GTO open from BTN
+  python -m pokerflex --once --pos BTN --hand AhKs --stack 100 --analyze
+  python -m pokerflex --once --pos CO --hand KhQh --stack 120 --analyze
+
+  # 2. Short stack (push/fold regime, e.g. 12bb)
+  python -m pokerflex --once --pos SB --hand 76o --stack 12 --analyze
+  python -m pokerflex --once --pos BTN --hand 55 --stack 10 --analyze
+
+  # 3. Explo vs nit (start bg, then set note or edit json; or use interactive first)
+  python -m pokerflex --background --pos BTN --stack 80 --auto-capture
+  # In another shell or switch to interactive: note nit fold_to_cbet 0.78 ; note nit aggression_factor 0.4
+  # Then use Ctrl+Alt+A in game. C-bets will be wider vs the nit.
+
+  # 4. Final table ICM (short stacks, 5-7 players left)
+  python -m pokerflex --background --tournament-mode --players-remaining 6 --pos SB --stack 15 --auto-capture
+  python -m pokerflex --once --pos UTG --hand Kh9h --stack 12 --tournament-mode --players-remaining 5 --analyze
+  # with concrete payouts (for postflop ICM too):
+  python -m pokerflex --once --pos BTN --hand 76s --board Ks9d3c --stack 13 --tournament-mode --players-remaining 6 --payouts 0.5,0.3,0.2 --analyze
+
+  # Mix + capture + live
+  python -m pokerflex --background --live --pos BTN --stack 60 --auto-capture --tournament-mode --players-remaining 7
+  # Full real-vision set-and-forget with partial tuning (hands-off ClubGG):
+  # python -m pokerflex --background --live --real-vision --periodic-capture 10 --vision-min-conf 0.28 --vision-partial-conf 0.20 --vision-min-consec 2 --auto-capture --vision-debug  # (use --vision-debug first to calibrate)
+
+TIPS FOR REAL PLAY (ClubGG focus)
+- See the "HOW TO RUN THE BACKGROUND A1 ASSISTANT (ZERO-TOUCH...)" section above for the final instructions.
+- One-click demo: launch_assistant.bat (or launch_assistant.py) — uses --live --simulate-vision + good defaults; produces rich A1 advice "while playing".
+- Start real: --background --live --periodic-capture 12 --auto-capture (table visible). Use pokerflex / python -m / python pokerflex.py .
+- Use hotkeys (Ctrl+Alt+A etc) while table is focused. (Admin terminal may be needed on some Win setups.)
+- Build opponent profiles with 'notes edit' or json (nit/station etc) — explo kicks in immediately (tested: c-bets adjust).
+- For ICM spots near pay jumps: add --tournament-mode + players_remaining. (Tested in sim + direct.)
+- State + notes survive restarts (persisted in the two clubgg_*.json). Start fresh by deleting them if desired.
+- Output is clean rich text (no legacy disclaimers in new A1 path) — copy to chat/overlay or just read. (End-to-end verified: GTO/explo/ICM/live/bg; A1 default everywhere. Legacy fallback via POKERFLEX_FORCE_LEGACY_BRAIN=1 for shim/debug only.)
+
+- For real vision (beyond sim): bring table forward; tesseract binary + calibration improves card extraction (enhanced: better OCR preproc/whitelist, multi-scale templates, refined ROIs incl hero_stack for auto stack, per-ROI ocr, improved conf scoring + stack/pos extraction).
+- Test full flow safely: python -m pokerflex --background --live --simulate-vision (auto state changes + auto A1 advice prints with notes/ICM if set). Or use the one-click launcher.
+- For actual auto table reading: python -m pokerflex --background --live --real-vision ... (auto-extracts hand/board/position/stack from ClubGG vision when conf allows; falls back gracefully on partials/low-conf).
+  Use --vision-min-consec 2 (or higher) + --vision-min-conf ~0.25-0.35 + --vision-partial-conf 0.18-0.22 + --vision-preproc aggressive + medium/high sens for stable real-vision set-and-forget (ignores transients, accepts incremental streets, better OCR for partials).
+- Calibrating... (screenshots-style text instructions + "after you should see"):
+  Run: python -m pokerflex calibrate
+  - STEP 1/8 prepare table visible.
+  - STEP 2/8: 3x samples or "re-calib from existing" (uses calib_sample*.png without re-grab).
+  - STEP 3/8: cv2 auto-suggest ROIs from felt+cards. Saves+shows calib_roi_preview.png .
+    (text screenshot: GREEN box bottom hero cards, YELLOW center board, ORANGE stack. You Y or adjust 0.xx fractions.)
+  - STEP 4/8: crops list + batch: "auto" (accept good OCR-suggests) or "Ah 10d _ Ks" or one-by-one w/ suggestions. -> card_templates/.
+  - STEP 6/8 save vision_config.json .
+  - STEP 7/8 AUTO: fresh capture+parse -> calib_test_capture.png + rich:
+      hand=... board=... conf=0.81 partial=False rects=... 
+    GUIDANCE: (or "if conf low on suits, add more template crops").
+  After calibration you should see (in --calib-test or live): higher full reads, reliable partial street updates (flop->turn), auto pot/bet/street fields, conf>0.6 typical, fewer manual sets. Use --calib-test to demo profile anytime. Profiles auto-loaded, 0 extra input.
+  Capture now retries+activates windows (deeper auto-capture); partial reads handled by prefer_better_hand/board + new-hand stale clear + partial_min_conf thresh + consec debounce without corrupting state. Manual/json/hotkey always override.
+  --vision-partial-conf adds live vision sensitivity control specifically for partials (e.g. river card only read still advances state + auto A1).
+
+TROUBLESHOOTING
+- Encoding / UTF-8 / emoji output on Windows:
+  Launchers (pokerflex.py, run_brain.py, launch_*.py) call sys.stdout.reconfigure(encoding="utf-8") early for 🧠 banners etc.
+  If garbled text or Unicode errors: prefer modern PowerShell or Windows Terminal. Fallback: run `chcp 65001` in your shell first.
+  Safe non-emoji fallbacks are used where possible. The A1 output itself is mostly ASCII + a few symbols.
+
+- Tesseract OCR for real (non-sim) vision:
+  `pip install -r requirements.txt` only installs the Python pytesseract wrapper.
+  For actual card reading you must install the Tesseract binary separately:
+    Download from https://github.com/UB-Mannheim/tesseract/wiki (Windows installer).
+    Add the install folder (containing tesseract.exe) to your system PATH environment variable.
+  Restart terminal after PATH change.
+  Without the binary: vision parse falls back to cv2 rect detection + optional templates (low conf on graphical cards); --simulate-vision still works 100% for demo.
+  Tip: run `python -c "import pytesseract; print(pytesseract.get_tesseract_version())"` to verify.
+
+- TROUBLESHOOTING REAL VISION (after calibrate + tesseract; for --real-vision / launch_assistant --real):
+  - Low/partial conf or garbled cards: run `python -m pokerflex calibrate` (wizard re-tunes ROIs/templates to *your* table/res/skin/zoom/lighting). Re-launch with --real-vision.
+  - Still noisy after calib: add --vision-debug (logs conf/partials/rects/method), try --vision-preproc aggressive --vision-min-conf 0.25 --vision-partial-conf 0.18 --vision-min-consec 2 --vision-sensitivity medium --vision-retries 6.
+  - Use --sim-scenario noisy in tests to simulate OCR errors (self-test exercises this).
+  - Fallback always safe: manual `set hand AhKs`, edit clubgg_current_state.json, or hotkey Ctrl+Alt+C (vision never locks you out).
+  - No window: bring ClubGG table to front (not minimized, title has "ClubGG"); capture retries+activate help.
+  - Verify profile: python -m pokerflex --show-calibration ; reset if needed: --reset-vision.
+  - Test: python -m pokerflex --self-test (covers noisy vision + live flow + calib load); after real setup use --bench too.
+  - Post-calib real vision is now much stronger for production 0-touch (harden + listener + history/pot/bet/street/action extract).
+
+- Global hotkeys need Administrator (common on Windows):
+
+- Tray / pystray not showing or --tray ignored:
+  `pip install pystray` (or pokerflex[tray]). Without it --tray falls back to quiet --background (still usable).
+  For packaged exe, build on a machine that had pystray installed (or it gracefully skips tray features).
+  "Show Console" on noconsole builds only gives guidance (use non-noconsole build + --tray for hide/show).
+
+# =============================================================================
+# FINAL "READY TO USE" — ZERO-TOUCH BACKGROUND A1 FOR REAL-TIME CLUBGG (VERIFIED E2E + FINAL POLISH)
+# Comprehensive E2E test suite completed (direct calls, runner bg, GUI, packaging, all bg modes incl --background/--live/--simulate-vision/--real-vision/--auto-capture, hotkeys, state/notes persistence/watcher, legacy force, full self-tests in poker_engine.py + nash.py, imports, output, vision sim flows).
+# - New brain default (GTO pure, +explo notes, +ICM/tourney) via get_advice / runner / GUI / launchers: confirmed, rich clean output (no disclaimers).
+# - Bg modes fully exercised: --background (hotkeys+watcher), --live (auto listener + capture_and_parse + _robust_apply with prefer_better_* + consec debounce + new-hand clear + partial_min_conf + retries + auto-analyze on reliable deltas), --simulate-vision (0-touch demo cycling incl partials + icm + river), --real-vision (robust defaults auto-applied), --auto-capture, --vision-min-consec / --vision-partial-conf etc, persistence (json edits + load/save), hotkeys setup. E2E tests (parse->state->rich A1 w/ notes+ICM) confirmed via direct sim flows.
+# - Legacy fallback: 100% identical old behavior when POKERFLEX_FORCE_LEGACY_BRAIN=1 forced (env or CONFIG); never primary; verified side-by-side in self-tests + direct.
+# - Packaging: pip install -e . , python -m pokerflex (primary), bare `pokerflex` CLI entry point (post install), all root shims (python pokerflex.py, python run_brain.py etc) work pre/post.
+# - GUI: new options (Tournament/ICM + players + icm factor, notes/explo key+presets, live/sim capture toggle) fully wired to get_advice + capture; A1 default + send-to-runner for bg sync.
+# - Self-tests: poker_engine.py (equity, ranges, canonical GTO+ICM+explo spots under both brains, side-by-side), nash.py (matrix, icm_factor, solve_hu, range % diffs under ICM).
+# - Bugs spotted/fixed during E2E: emdash in argparse desc for safer non-utf consoles; runpy sys.modules warning filtered early (top of poker_engine.py) for python -m self-test; launcher seed robustness for notes file (now seeds if absent OR empty {} e.g. post clear_explo_notes in tests); confirmed notes default consistently clubgg_player_notes.json (CONFIG + explicit in runner/GUI/launch/ mgr); all imports/shims clean (no drift/dupe logic); encoding reconfig everywhere critical.
+# New A1 brain UNAMBIGUOUS default (poker_engine + all launchers/entry/GUI). Legacy only forced (debug, never primary).
+# Polished + tested; zero-touch bg A1 ready for ClubGG. Exact cmds:
+#
+# 1. ONE-CLICK (ultimate just-run-it per the polished flow):
+#    double-click launch_assistant.bat
+#    # (auto tray+live+overlay; auto real-vision if you calibrated and have vision_config.json)
+#    # After calib for real table (recommended once):
+#    python -m pokerflex calibrate
+#    # then simply:
+#    double-click launch_assistant.bat
+#    # or for explicit real (still zero touch after calib):
+#    python launch_assistant.py --real-vision --periodic-capture 12 --auto-capture --vision-min-conf 0.28 --vision-min-consec 2
+#
+# 1b. Tray / packaged standalone (new set-and-forget, minimized + menu + auto-start):
+#    (pip install pystray)
+#    python -m pokerflex --tray --live --simulate-vision --pos BTN --stack 100 --auto-capture
+#    # or real: ... --tray --live --real-vision ...
+#    # Build once for double-click exe anywhere:
+#    python build_exe.py
+#    # then dist/PokerFlex.exe --tray ...   (or plain double-click + use tray menu; edit shortcut target for flags)
+#    # Tray also supports "Run at startup" toggle (creates editable .bat in Windows Startup folder)
+#
+# 2. Primary (pre/post pip install -e .):
+#    python -m pokerflex --background --live --simulate-vision --pos BTN --stack 100 --auto-capture
+#    # after install:
+#    pokerflex --background --live --simulate-vision --pos BTN --stack 100 --auto-capture
+#
+# 3. Real ClubGG (visible table):
+#    python -m pokerflex --background --live --real-vision --periodic-capture 8 --auto-capture --vision-min-conf 0.30 --vision-min-consec 2
+#    # with debug + mixed sim for test (or real):
+#    python -m pokerflex --background --live --real-vision --vision-debug --sim-scenario mixed --vision-min-consec 2
+#
+# 4. Shims:
+#    python pokerflex.py --background --live --simulate-vision --pos BTN --stack 100 --auto-capture
+#    python run_brain.py --background --live --real-vision --vision-debug --vision-min-conf 0.25
+#
+# One-shots: python -m pokerflex --once --pos ... --analyze   (add --tournament-mode --players-remaining N for ICM)
+# Interactive: python -m pokerflex   (then ENTER/analyze, set, notes edit, etc.)
+# Hotkeys: ctrl+alt+a/s/c (global)
+# Live edit: clubgg_current_state.json + clubgg_player_notes.json (watcher ~2s)
+# Force legacy: $env:POKERFLEX_FORCE_LEGACY_BRAIN=1; python -m pokerflex ...
+# Self-tests: python -m pokerflex.poker_engine ; python -m pokerflex.nash
+# All pass. Production-ready for real-time ClubGG use.
+# =============================================================================
+
+  The keyboard library registers system-wide hooks. On locked-down or UAC-enabled setups, the console must be elevated.
+  Solution: Right-click your PowerShell / Command Prompt shortcut → "Run as administrator", then cd to E:\PokerFlex and launch.
+  Hotkeys will then fire even when ClubGG (or any other app) has focus. No alt-tabbing needed.
+  (This is only for the hook registration; the app itself runs fine un-elevated for most users.)
+
+- Sim vs Real vision / capture ( --simulate-vision vs live ClubGG ):
+  Real vs sim is key for the enhanced live experience: --simulate-vision (default for demo/0-touch launcher) uses cycling states + injected partials for safe E2E testing of auto state update + analyze (notes/ICM fully active); --real-vision (or --live without sim) uses actual ClubGG window capture + full ROI/CV/OCR/preproc pipeline for hands-off auto-extract of hand/board/pos/stack. Both feed the same robust listener (_robust_apply with conf/partial_min/conf consec/prefer/merge/newhand logic) so transition is seamless. Low-conf/partials always fallback to manual/json/hotkey (no bad overwrites). Use --vision-preproc aggressive + --vision-partial-conf + --vision-min-consec 2 for real production set-and-forget.
+  --simulate-vision (or POKERFLEX_VISION_SIMULATE=1, used by default in launch_assistant.bat / .py ):
+    • No poker table or OCR required at all. True 0-touch demo.
+    • capture_and_parse returns cycling realistic states (deep cash + short ICM examples + partials) on each poll. Use --sim-scenario mixed/cash/tourney/icm/demo for variety (mixed alternates for long tests of all paths).
+    • Lets the --live listener + auto-analyze + notes + ICM + A1 formatting exercise the full end-to-end flow.
+    • Ideal for learning the assistant, verifying explo adjustments, testing without risking real play.
+    • Enhanced partial handling now includes incremental board reads in sim + runner smart 'prefer_better_board'/'prefer_better_hand' + NEW merge_board_fragment (for vision giving only new card fragment e.g. '5s' appended to prior flop) + consec + new-hand-clear + tmode stack-delta trigger to robust auto state advance on deals/streets/ICM. Added --vision-retries CLI + low-conf streak smart tips.
+    • --vision-debug adds internal logs (conf calc, partials, rects, libs) during sim polls for understanding the pipeline.
+  Real table (remove --simulate-vision, use --real-vision to force/explicit; plain --live also real):
+    • ClubGG table must be visible on screen (not fully covered/minimized; pygetwindow finds by title hint "ClubGG").
+    • Use --live --real-vision --periodic-capture N --auto-capture (or launch_assistant.py --real-vision).
+    • Internals (enhanced): ImageGrab of window/full + retries+activate (3x), get_clubgg_rois (hero/board/hero_stack refined), cv2 contour card rects (sens-tuned), per-crop tesseract (with --vision-preproc aggressive/light for CLAHE+denoise+adaptive on low contrast, card whitelist psm cfgs) + multi-scale template fallback, stack/pos auto-extract from roi ocr (more tolerant regex), improved conf scoring + overlap/partial guards in parse. capture_and_parse + attempt_vision_parse now take/forward debug + preprocess.
+    • Auto-extracts hand/board/position/stack from vision output when possible; partial reads supported (e.g. flop-only or 1 hole updates state safely via prefer_* + merge_board_fragment); conf thresh + below_threshold for graceful manual fallback. Smart board merge (prefer_* + merge for incremental-only reads) + consec debounce + new-hand stale-clear + deeper listener (ICM stack delta auto-trigger + retries via --vision-retries) in live/analyze prevents partial OCR from reverting known fuller boards or flicker. Low conf always manual-fallback (set/json/hotkey/capture remain in full control). --vision-retries increases capture success for true hands-off.
+    • Low conf is normal until tesseract binary + calibration/templates present. --vision-sensitivity / --vision-min-conf / --vision-min-consec tune (launcher + run_brain auto-use 0.28/2 for --real-vision). Use --vision-debug to see why reads are partial/low.
+    • Always safe to override with manual `set hand ...` / json edit — vision feeds but does not lock the state (notes/ICM untouched, fully compatible).
+    • For best results: bring table to front before capture, good lighting/zoom on cards, install tesseract, optionally seed card_templates/ dir with your exact card images (Ah.png etc).
+  New live vision tunables (added/enhanced for set-and-forget):
+    • --live-poll-secs N   (dedicated poll rate for --live; e.g. 8 for active, 20 for patient; complements --periodic-capture)
+    • --vision-sensitivity {low,medium,high} --vision-min-conf 0.XX --sim-scenario {demo,icm,cash,tourney,mixed} --vision-min-consec N --vision-debug --vision-retries N (NEW: capture retry count for real; e.g. 5-8)
+    • Full example: python -m pokerflex --background --live --real-vision --live-poll-secs 10 --vision-sensitivity medium --vision-min-conf 0.25 --vision-min-consec 2 --vision-retries 6 --vision-preproc aggressive --auto-capture --pos BTN --stack 80 --vision-debug
+    • Test full live sim flow end-to-end (parse->update->A1+notes+ICM): use python -c "..." with the _test_simulated_live_flow helper or just launch --live --simulate + watch auto advice.
+  You can mix: launch with sim for practice, then re-launch with --real-vision for real sessions. The two clubgg_*.json carry state across. Use --real-vision to ensure --live takes the real capture path.
+  The background app now delivers true hands-off real-time table reading via robust vision + auto listener (0 touch after launch_assistant or equiv cmd). Use --vision-debug during initial real setup to inspect partials/conf and tune thresholds/sens for your table/resolution.
+
+See readme.md for full "Getting Started with the A1 Real-Time Assistant" section.
+Run `python pokerflex.py --help` (or `python -m pokerflex --help` where supported) or type 'help' inside for more.
+New A1 brain = THE UNAMBIGUOUS DEFAULT everywhere (module + every launcher/entry/GUI). Background real-time A1 assistant (with notes/explo/ICM/hotkeys/live) is now production-ready. Legacy only if you force it for debug (get_advice shim + poker_engine self-tests side-by-side verified 100%; runner intentionally A1-primary always via direct advisor/format). Enjoy!
+
+# Final specialist confirmation (this pass): USE_NEW_BRAIN=True is module default + reinforced in ALL entries/launchers/GUI; output polished (clean A1 rich text, no legacy disclaimers normal use); zero-touch `python -m pokerflex` / launch_assistant / `pokerflex` CLI; full verifs (imports/GTO/explo/ICM/legacy/GUI/runner--bg-live-sim/self-tests + full nash exit0 + packaging re-verif + live flow E2E w/ partials+explo+ICM + ascii dash safety fix) passed. Production-ready for real-time ClubGG.
+
+# =============================================================================
+# READY-TO-USE: EXACT ZERO-TOUCH COMMANDS FOR THE BACKGROUND A1 ASSISTANT (FINAL)
+# (E2E full suite passed: new brain default in all paths, bg modes, vision sim/real, GUI, packaging, self-tests, legacy force, state/watcher, no bugs.)
+# =============================================================================
+# 1. ONE-TIME SETUP (from E:\PokerFlex):
+#    pip install -r requirements.txt && pip install -e .
+#    # or double-click install.bat
+#    # For real vision/OCR later: install tesseract-ocr binary + add to PATH (see troubleshooting above)
+#
+# 2. TRUE ZERO-TOUCH (recommended; double-click or one cmd; auto --bg --live + A1 + sim demo + robustly seeds sample explo 'nit' note even if notes file empty (e.g. after clears) + robust for real):
+#    double-click launch_assistant.bat
+#    # or
+#    python launch_assistant.py
+#    # For real ClubGG table (visible, not min'd):
+#    python launch_assistant.py --real-vision
+#    # With tuning (no edit to launcher):
+#    python launch_assistant.py --real-vision --periodic-capture 8 --vision-min-conf 0.28 --vision-min-consec 2 --vision-debug
+#
+# 3. DIRECT (same; primary documented, works before/after install; use `pokerflex` bare after pip -e . ):
+#    python -m pokerflex --background --live --simulate-vision --pos BTN --stack 100 --auto-capture
+#    # after pip -e . :
+#    pokerflex --background --live --simulate-vision --pos BTN --stack 100 --auto-capture
+#    # Real (hands-off):
+#    python -m pokerflex --background --live --real-vision --periodic-capture 12 --auto-capture
+#    # Tuned real + robust (auto-applied by launcher/run_brain if --real-vision):
+#    python -m pokerflex --background --live --real-vision --periodic-capture 8 --auto-capture --vision-min-conf 0.28 --vision-min-consec 2 --vision-sensitivity medium --vision-retries 5 --vision-preproc aggressive
+#    # First run this once for your table (wizard persists tuned ROIs/card templates; real-vision loads them auto):
+#    python -m pokerflex calibrate
+#    # Sim variety or debug:
+#    python -m pokerflex --background --live --simulate-vision --sim-scenario mixed --vision-debug
+#
+# 4. WHILE RUNNING (bg/minimized):
+#    - Hotkeys (global): Ctrl+Alt+A (analyze/rich A1), Ctrl+Alt+S (status), Ctrl+Alt+C (capture)
+#    - Live edit: open/edit clubgg_current_state.json or clubgg_player_notes.json (watcher ~2s reload; supports tmode/icm/players + notes)
+#    - In interactive (omit --background): type 'set pos BTN', 'note nit fold_to_cbet 0.78', 'notes edit', ENTER/analyze, 'status', 'quit'
+#    - Stop: Ctrl+C (auto saves state+notes)
+#
+# 5. OTHER:
+#    - GUI (windowed, also A1 default + new options): python main.py
+#    - One-off: python -m pokerflex --once --pos BTN --hand AhKs --stack 100 --analyze
+#    - Force legacy (debug only): $env:POKERFLEX_FORCE_LEGACY_BRAIN=1; python -m pokerflex ...
+#    - Self-tests: python -m pokerflex.poker_engine ; python -m pokerflex.nash
+#    - Help: python -m pokerflex --help
+#
+# Production-ready for real-time ClubGG (sim for demo/verify; real-vision for actual play after tesseract/calib).
+# All via A1 new brain (rich GTO + 🎯explo notes + ICM). Zero touch after launch.

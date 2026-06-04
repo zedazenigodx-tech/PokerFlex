@@ -1,0 +1,13 @@
+customtkinter
+keyboard
+treys
+Pillow
+opencv-python
+pytesseract
+pygetwindow
+# Optional (for enhanced system tray / true background UX; graceful fallback if absent):
+# pystray
+#   pip install pystray
+#   (or pip install "pokerflex[tray]" after editable)
+# Tray is Windows-prioritized but pystray supports cross-platform (Linux appindicator etc).
+# Without it: --tray falls back to plain --background (still quiet, hotkeys, live etc work).

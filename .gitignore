@@ -1,0 +1,61 @@
+# Runtime state / notes (persist across runs but not source controlled)
+*_current_state.json
+*_player_notes.json
+player_notes.json
+clubgg_*.json
+coinpoker_*.json
+poker_*.json
+
+# Captures / vision
+*.png
+*.jpg
+*.jpeg
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs / temps / test artifacts
+*.log
+*.err
+poker_engine_test.log
+*.tmp
+_tmp*/
+%SMK%
+_tmp_fv.bat
+*_test*.log
+*_test*.err
+import_test*.log
+launcher_test*.log
+notes_default_fix*.log
+go_dark_complete.txt
+last_advice.txt
+nash_test_out.txt
+runner_test_icm_once.log
+self_test_poker_engine_fresh_e2e.log
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
