@@ -82,6 +82,24 @@ def get_preflop_decision(state: GameState) -> Decision:
             explo_pre += " ; defend tighter"
         if ftc > 0.7 and regime != "push_fold":
             explo_pre += " (folds post: realize more vs c/r)"
+
+    # NEW: account for hero's own aggressive play style (user feedback)
+    # If "hero" notes present (e.g. from GUI "I play aggressive"), loosen hero's ranges/sizing
+    hero_notes = effective_notes.get("hero", {}) if isinstance(effective_notes, dict) else {}
+    hero_mult = 1.0
+    hero_anno = hero_notes.get("hero_anno", "") if hero_notes else ""
+    if hero_notes:
+        h_agg = float(hero_notes.get("aggression_factor", hero_notes.get("preflop_open_tight", 1.0)))
+        if h_agg > 1.2 or hero_notes.get("preflop_open_tight", 1.0) < 0.9:
+            hero_mult = 1.15
+            if not hero_anno:
+                hero_anno = " (hero is aggressive: wider opens/3b, bigger sizing)"
+        if hero_notes.get("preflop_open_tight", 1.0) > 1.1:
+            hero_mult *= 0.9
+            hero_anno = " (hero is nitty: tighter than default)"
+    if hero_anno and not hero_anno.startswith(" "):
+        hero_anno = " " + hero_anno
+
     if effective_notes:
         # ensure state carries for downstream / format
         if not getattr(state, "player_notes", None):
@@ -166,33 +184,91 @@ def get_preflop_decision(state: GameState) -> Decision:
 
     # Deep or mid stack - use reference open ranges
     # Now with dynamic notes adjustment for opens/3bets (wider steal vs nitty, etc)
-    if pos in ("UTG", "MP", "CO", "BTN", "SB"):
+    # FIX: much less nitty in multi-way limped pots (common tournament complaint)
+    # When 3+ have entered before you (limpers/callers), especially in position + tournament (antes + dead money),
+    # play significantly wider than unopened open-ranges. Don't fold marginal hands just because not "open range".
+    # PT4 NL100+ derived (from pokertracker4 hands, *position-specific*):
+    # Wins (clear good lines only): HJ/MP (AQo 3bet +6.5bb), BTN/CO (86s steal +2.5bb), CO/HJ (AJo iso vs limp +10.78bb).
+    # Leaks (tighter/GTO): SB (44 call vs raise then fold = lost $), late vs 3bet + river overcall (JTs big loss).
+    # New rule per your update: aggro (hero_mult, 3bet AQo/AJs, dead-money iso/steal) ONLY from winning positions (HJ/CO/BTN).
+    # From SB/BB/early: base ranges + fold vs action (no extra looseness).
+    WIN_POS = ("CO", "BTN", "HJ", "MP")
+    bet_to_call = float(getattr(state, "bet_to_call", 0.0) or 0.0)
+    pot = float(getattr(state, "pot", 1.5) or 1.5)
+    facing_raise = bet_to_call > 0.5
+    dead_money_spot = (pot > 3.0 or n_opp >= 2)
+    in_winning_pos = pos in WIN_POS
+    if pos in ("UTG", "MP", "CO", "BTN", "SB", "BB"):
         in_range = is_in_open_range(hand_class_str, pos)
-        if in_range:
+        multiway_limped = (n_opp >= 3)
+        if facing_raise:
+            if hero_mult > 1.05 and in_winning_pos and hand_class_str in ("AQo", "AQs", "AJs", "KQs", "AKs", "AKo", "99", "TT", "JJ", "QQ"):
+                # 3bet only the PT4 winning lines from winning positions.
+                size = round(max(3.8 * hero_mult * max(bet_to_call, 2.0), 8.0), 1)
+                action = Action(
+                    action_type="bet",
+                    size_bb=size,
+                    reasoning=f"3bet {hand_class_str} (PT4 NL100 AQo 3bet win from {pos})"
+                )
+                explanation = (
+                    f"{hand_class_str} — 3bet. PT4 NL100 (pokertracker4): AQo 3bet from late (HJ/CO) took +6.5bb pre vs small open. "
+                    "Applied only in your winning positions (HJ/CO/BTN). Size ~" + f"{size}bb."
+                )
+            else:
+                # Losing positions or non-premium vs raise: fold. Directly addresses SB 44 call leak + loose JTs vs 3bet.
+                action = Action(action_type="fold", reasoning="fold vs raise (PT4: tighter GTO from SB/early or vs 3bet; wins were late pos aggressor)")
+                explanation = (
+                    f"{hand_class_str} — fold to raise. "
+                    "PT4 analysis: SB defends (44) lost; calling 3bets then overcalling in late also lost big. "
+                    "Aggro only from winning pos (CO/BTN/HJ) with the observed hands (AQo+). Base GTO otherwise."
+                )
+        elif in_range:
+            size = 2.5 * (hero_mult if in_winning_pos else 1.0)
             action = Action(
                 action_type="bet",
-                size_bb=2.5,
+                size_bb=round(size, 1),
                 reasoning=f"{hand_class_str} is in the {pos} open range (A1 reference)."
             )
-            explanation = "Standard open size ~2.5bb (2.2-3bb)."
+            explanation = f"Standard open size ~{size:.1f}bb."
+        elif (multiway_limped or dead_money_spot) and in_winning_pos:
+            # Wide raise / iso / steal ONLY winning late positions (matches CO 86s, HJ/CO AJo/AQo lines).
+            size = 3.5 * hero_mult
+            action = Action(
+                action_type="bet",
+                size_bb=round(size, 1),
+                reasoning=f"Raise/iso vs dead money ({pos} winning pos, {n_opp} in)"
+            )
+            explanation = (
+                f"{hand_class_str} — raise (your PT4 winning line from {pos}). "
+                "NL100 wins: 86s CO after folds, AJo iso vs limp, AQo 3bet. Dead money + late pos = +EV. "
+                "SB/early excluded (your losing spots — play GTO ranges)."
+            )
+            tmode = getattr(state, "tournament_mode", False) or (getattr(state, "icm_factor", 0.0) or 0) > 0
+            if tmode:
+                explanation += " (Overlay beats ICM tighten.)"
         else:
             action = Action(
                 action_type="fold",
-                reasoning="outside the open range (if unopened)"
+                reasoning="fold (not winning pos or outside range)"
             )
-            explanation = f"{hand_class_str} is outside the {pos} open range (if unopened)."
+            explanation = f"{hand_class_str} — fold (unopened or from non-winning position per PT4 results; tighter from SB/early)."
         if regime == "mid":
-            explanation += f"\n(≈{bb}bb mid-stack — using deep open ranges as an approximation; true mid-stack ranges differ slightly.)"
+            explanation += f"\n(≈{bb}bb mid — deep ranges approx.)"
         if explo_pre:
             explanation += explo_pre
-        m = {"in_open_range": float(in_range), "regime": regime}
+        if hero_anno:
+            explanation += hero_anno
+        m = {"in_open_range": float(in_range), "regime": regime, "multiway_limped": float(multiway_limped), "facing_raise": float(facing_raise), "pt4_derived": 1.0, "winning_pos": float(in_winning_pos)}
         if effective_notes:
             m["explo_notes_used"] = 1.0
             m["explo_preflop_mult"] = round(preflop_mult, 3)
+        if hero_notes:
+            m["hero_notes_used"] = 1.0
+            m["hero_mult"] = round(hero_mult, 3)
         return Decision(
             primary_action=action,
             explanation=explanation,
-            confidence=0.85 if in_range else 0.75,
+            confidence=0.88 if (in_range or (in_winning_pos and (facing_raise or multiway_limped or dead_money_spot))) else 0.78,
             hand_class=hand_class_str,
             metrics=m
         )

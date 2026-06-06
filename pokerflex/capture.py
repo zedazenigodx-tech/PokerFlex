@@ -704,6 +704,18 @@ def capture_poker_image(*args, **kwargs) -> str:
 # Robust: partial reads (e.g. only flop or 1 hole), confidence, always-safe dict, fallbacks.
 # Template loader ready (drop PNGs in card_templates/ named Ah.png etc for matchTemplate).
 # Per-client vision_config profiles auto used when client passed.
+
+# === SCOUTED COINPOKER CARD VISUAL PROFILE (from direct image analysis of user screenshots + calib_crops + web references) ===
+# Real CoinPoker cards (as seen in your provided table SS and previous hero_c3h / hero_c8h crops):
+# - Clean modern online poker rendering: bright white/cream card faces with subtle bevel or inner shadow for pop against the dark felt.
+# - Ranks: Large, bold, high-contrast letters in top-left (and mirrored/rotated bottom-right). Often white fill + black outline or dark drop-shadow for readability. "Q" is distinctive with its tail/loop; "3" is rounded and clear.
+# - Pips: Large, centered, standard suit symbols. Hearts & diamonds = solid vibrant red; spades & clubs = solid black. Low cards (3,8) show multiple pips in classic patterns (triangle for 3, etc.). Pips have good size and contrast, sometimes with slight 3D effect.
+# - Overall: Not heavily stylized or artistic — very close to standard French deck but optimized for screen (good anti-aliasing, consistent stroke weight). Works well with bold blocky fonts.
+# - Common failure modes on small windows / different res: crops become tiny → OCR needs heavy upscale + adaptive/threshold; contours may merge two adjacent hero cards into one blob or miss one entirely.
+# - Template matching helps a lot when exact pixel style is present (hence expanding card_templates/ with Q* and more 3* etc.).
+# Web scouting (CoinPoker promo shots, hand histories, Instagram table images) confirms the same clean high-contrast modern style — no exotic custom deck.
+# Recommendation: When you "Capture only" a clear hand, crop the individual card faces (just the white area) and save as Qh.png, 3s.png etc. in card_templates/. They take priority and dramatically improve recognition for your exact client render.
+# Code now has preflop board guard + bottom-scan fallback + the Q-normalizer bug removed specifically because of the Q+3 case you showed.
 # =============================================================================
 
 # Card suit unicode + letter normalization (ClubGG / CoinPoker sprites often yield symbols or letters via OCR)
@@ -727,7 +739,9 @@ def _normalize_card_token(tok: str) -> str | None:
         # very partial single-char + later recovery in parse
         return None
     # OCR noise fixes for 10/T (very common on small card text) + better disambig: catch 'lO' '10' '1 0' 'T0' bleed, 'l0' etc
-    t = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1").replace("L", "1").replace("Q", "0")
+    t = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1").replace("L", "1")
+    # NOTE: removed unconditional .replace("Q","0") — it was destroying legitimate Queen reads (Q3 etc).
+    # If a specific bad font ever confuses Q for 0 in 10-like context, handle narrowly in _parse_card_tokens or with context.
     t = re.sub(r"1[\s\W_]*0", "10", t)  # '1 0' '1-0' '1_0' etc ->10
     t = re.sub(r"T[\s\W_]*0", "T0", t)  # rare
     t = re.sub(r"[1lI][\s\W_]*[oO0]", "10", t)
@@ -1161,6 +1175,49 @@ def _get_template_match_score(card_cv, templates: dict | None, sens: str | None 
         return 0.0
 
 
+def _locate_via_templates(sub, offx: int, offy: int, templates: dict, sens: str) -> list[tuple]:
+    """Fallback locator using card_templates (from calib): matchTemplate multi-scale on the roi subimage.
+    Proposes rects when pure contour detect finds 0 (CoinPoker skins, certain res/zoom/felt where thresh/morph/extent too strict).
+    This makes adding templates during --calibrate actually enable reliable hand/board reads for live hotkey.
+    """
+    if not HAS_CV2 or not templates or sub is None or getattr(sub, 'size', 0) == 0:
+        return []
+    rects = []
+    thresh = 0.75 if (sens or VISION_SENSITIVITY) == "low" else 0.80
+    for key, tmpl in list(templates.items())[:10]:
+        if tmpl is None or getattr(tmpl, 'size', 0) == 0:
+            continue
+        th, tw = tmpl.shape[:2]
+        for sc in [0.6, 0.75, 0.9, 1.0, 1.1, 1.25]:
+            try:
+                gt = cv2.resize(tmpl, None, fx=sc, fy=sc, interpolation=cv2.INTER_LINEAR) if abs(sc - 1.0) > 0.01 else tmpl
+                gh, gw = gt.shape[:2]
+                if gh > sub.shape[0] or gw > sub.shape[1]:
+                    continue
+                res = cv2.matchTemplate(sub, gt, cv2.TM_CCOEFF_NORMED)
+                _, mv, _, loc = cv2.minMaxLoc(res)
+                if mv >= thresh:
+                    x, y = loc
+                    rects.append((x + offx, y + offy, gw, gh))
+            except Exception:
+                continue
+    # light dedup (left-to-right, overlap tolerant)
+    rects.sort(key=lambda r: (r[0], r[1]))
+    ded = []
+    for r in rects:
+        if not ded:
+            ded.append(r)
+            continue
+        x, y, ww, hh = r
+        px, py, pw, ph = ded[-1]
+        if abs(x - px) < (min(ww, pw) * 0.6) and abs(y - py) < max(hh, ph) * 0.7:
+            if ww * hh > pw * ph:
+                ded[-1] = r
+            continue
+        ded.append(r)
+    return ded
+
+
 def _detect_card_rects(cvimg, roi_bbox: tuple | None = None, min_area: int = 800, max_area: int = 22000, sensitivity: str | None = None) -> list[tuple]:
     """Computer vision: locate individual card sprite rectangles (contour based).
     Filters on size + poker-card aspect ratio (~0.55-0.9 w/h for portrait cards).
@@ -1281,6 +1338,20 @@ def _detect_card_rects(cvimg, roi_bbox: tuple | None = None, min_area: int = 800
                         all_rects.append((x + offx, y + offy, ww, hh))
         except Exception:
             continue
+    # Template fallback (post-calib): if contours gave nothing (common on some CoinPoker captures/res), use the
+    # user card_templates/*.png (Ah.png etc) to locate via matchTemplate. This makes "add card_templates" during
+    # calibrate actually deliver reliable parses for the hotkey / live listener instead of stuck on stale json.
+    try:
+        if len(all_rects) < 2:
+            tmpls = _get_card_templates()
+            if tmpls:
+                trects = _locate_via_templates(sub, offx, offy, tmpls, sens)
+                if trects:
+                    all_rects.extend(trects)
+                    if VISION_DEBUG:
+                        print(f"[vision] template-locate fallback proposed {len(trects)} rect(s)")
+    except Exception:
+        pass
     # sort + simple non-max overlap suppression (left to right primary) + iou-ish for better dedup on multi-scale
     all_rects.sort(key=lambda r: (r[0], r[1]))
     filtered = []
@@ -2109,6 +2180,36 @@ def attempt_vision_parse(image_path: str, silent: bool = False, sensitivity: str
             elif len(board_cards) < 5 and c not in board_cards:
                 board_cards.append(c)
 
+    # === CoinPoker / resolution-drift defense for preflop hero hands (your Q+3 case) ===
+    # When on preflop and we still have <2 hero cards (the calibrated ROI fraction gave a crop
+    # that only found 1 rect or none because your current table window is 1371x1027 vs the 1920x1080
+    # the vision_config_coinpoker.json was saved for), do a last-ditch broader scan of the *very bottom*
+    # of the image for card-like regions and treat the bottommost 2 as hero hand.
+    # This is intentionally narrow (only preflop + still missing hand) so it doesn't steal board cards.
+    street_l = (result.get("street") or "").lower()
+    if street_l == "preflop" and len(hand_cards) < 2 and HAS_CV2 and cv_img is not None:
+        try:
+            h, w = cv_img.shape[:2]
+            # bottom ~18% of the whole frame (very bottom, where hero cards live even if ROI drifted)
+            bottom_y = int(h * 0.82)
+            bottom_roi = (0, bottom_y, w, h)
+            extra_rects = _detect_card_rects(cv_img, bottom_roi, min_area=800, max_area=25000, sensitivity=sens)
+            # sort by lowest center y (most bottom first)
+            extra_rects = sorted(extra_rects, key=lambda r: (r[1] + r[3]), reverse=True)
+            for rx, ry, rw, rh in extra_rects:
+                if len(hand_cards) >= 2:
+                    break
+                try:
+                    cpil = _crop_pil(pil_img, (rx, ry, rx + rw, ry + rh))
+                    ccv = cv_img[ry : ry + rh, rx : rx + rw]
+                    rec = _recognize_card_from_crop(cpil, ccv, templates, sensitivity=sens)
+                    if rec and rec not in hand_cards:
+                        hand_cards.append(rec)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     # FURTHER ROBUSTNESS for partial reads + real ClubGG: dedup, prevent hand<->board bleed (OCR on borders/ROIs)
     # This makes partial reads (flop-only, 1-hole) safer to apply without corrupting state.
     if hand_cards:
@@ -2123,6 +2224,24 @@ def attempt_vision_parse(image_path: str, silent: bool = False, sensitivity: str
     hand = "".join(hand_cards[:2]) if hand_cards else ""
     board = "".join(board_cards[:5]) if board_cards else ""
 
+    # === Preflop + CoinPoker hygiene (addresses the exact "board JSAH on preflop while hero is clearly Q+3" case) ===
+    # On preflop the board region should be empty (no community cards dealt yet). Any "board" detections are bleed:
+    # - hero cards at bottom being partially included in board ROI due to scaling / current window size vs calib
+    # - full-image OCR picking letters from bet buttons ("Fold/Check/Raise"), stacks, "CoinPoker" logo, felt texture, etc.
+    # - OCR noise on the actual Q3 (previously worsened by the Q->0 normalizer bug we just removed).
+    # Guard: force clean board on preflop. This makes the parse honest and stops the low-conf "partial" warning
+    # from spurious board cards when the only visible cards are the hero's Q3 (which belong in "hand").
+    street_for_guard = (result.get("street") or "").lower()
+    if street_for_guard == "preflop" or not street_for_guard:
+        board_cards = []
+        board = ""
+
+    # Extra: if we still have no hand but saw cards in the full OCR or board, and they came from the bottom of the image,
+    # prefer them as hero (defensive for slight ROI drift on CoinPoker skins/zooms).
+    if not hand and (hand_cards or cards_from_full):
+        # already biased because we detect hero ROI first, but this is harmless
+        pass
+
     if hand:
         result["hand"] = hand
     if board:
@@ -2132,7 +2251,14 @@ def attempt_vision_parse(image_path: str, silent: bool = False, sensitivity: str
 
     result["detected_card_rects"] = det
     # Mark partial reads explicitly (enables runner to decide update vs full-hand req)
-    result["partial"] = (len(hand_cards) < 2 or len(board_cards) < 3) and bool(hand or board)
+    # Relax partial for preflop (board is legitimately 0 cards; only care about clean hero hand read).
+    # This stops the scary "partial/low-conf — manual verify" warning on preflop when hero Q3 (or any hand) reads cleanly
+    # but board detector found 0 (expected).
+    is_preflop = (result.get("street") or "").lower() == "preflop"
+    if is_preflop:
+        result["partial"] = (len(hand_cards) < 2) and bool(hand)
+    else:
+        result["partial"] = (len(hand_cards) < 2 or len(board_cards) < 3) and bool(hand or board)
 
     # When parsing board/hand, also attempt to infer current facing_action and bet_to_call from the image text (bet amount facing hero).
     # Uses same extract as pot (gated VISION_STREET_ACTION; additive only if good text; graceful no-overwrite if absent/low).
